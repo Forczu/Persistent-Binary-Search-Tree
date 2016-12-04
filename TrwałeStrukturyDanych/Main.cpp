@@ -2,6 +2,11 @@
 #include <cstdio>
 #include "PersistentTree.h"
 
+void findValue(PersistentTree<int> const & tree, int value, int version)
+{
+	std::cout << (tree.find(value, version) != tree.end() ? "true" : "false") << std::endl;
+}
+
 int main()
 {
 	PersistentTree<int> tree;
@@ -31,6 +36,12 @@ int main()
 		std::cout << *it << ' ';
 	}
 	std::cout << std::endl;
+	// wyszukiwanie po historii
+	findValue(tree, 3, 5); // oczekiwane true
+	findValue(tree, 1, 6); // oczekiwane true
+	findValue(tree, 2, 2); // oczekiwane false
+	findValue(tree, 5, 3); // oczekiwane false
+
 	getchar();
 	return 0;
 }

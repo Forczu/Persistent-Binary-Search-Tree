@@ -41,7 +41,7 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja.</param>
 	/// <returns></returns>
-	Node<Type> * getLeftChild(int version)
+	Node<Type> * getLeftChild(int version) const
 	{
 		Node<Type> * left = _changeType == LeftChild && version >= _changeTime ? _changeChild : _leftChild;
 		return left;
@@ -52,7 +52,7 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja.</param>
 	/// <returns></returns>
-	Node<Type> * getRightChild(int version)
+	Node<Type> * getRightChild(int version) const
 	{
 		Node<Type> * right = _changeType == RightChild && version >= _changeTime ? _changeChild : _rightChild;
 		return right;

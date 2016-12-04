@@ -37,11 +37,11 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
 	/// <returns></returns>
-	iterator begin(int version = 0)
+	iterator begin(int version = 0) const
 	{
 		if (version == 0)
 			version = getCurrentVersion();
-		iterator it(_root[version], version);
+		iterator it(_root.at(version), version);
 		return it;
 	}
 	
@@ -68,7 +68,7 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
 	/// <returns></returns>
-	iterator end(int version = 0)
+	iterator end(int version = 0) const
 	{
 		if (version == 0)
 			version = getCurrentVersion();
@@ -92,16 +92,31 @@ public:
 	/// <param name="value">Wartosc do wyszukania.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <returns></returns>
-	iterator find(Type value, int version = 0)
+	iterator find(Type value, int version = 0) const
 	{
-
+		if (version == 0)
+			version = getCurrentVersion();
+		bool found = false;
+		Node<Type> * currentNode = _root.at(version);
+		while (!found)
+		{
+			if (value < currentNode->getValue())
+				currentNode = currentNode->getLeftChild(version);
+			else if (value > currentNode->getValue())
+				currentNode = currentNode->getRightChild(version);
+			else
+				found = true;
+			if (currentNode == nullptr)
+				found = true;
+		}
+		return iterator(currentNode, version);
 	}
 	
 	/// <summary>
 	/// Zwraca numer najnowszej wersji drzewa.
 	/// </summary>
 	/// <returns></returns>
-	int getCurrentVersion()
+	int getCurrentVersion() const
 	{
 		return _version;
 	}
@@ -179,7 +194,7 @@ public:
 	/// <summary>
 	/// Drukuje drzewo na konsoli
 	/// </summary>
-	void print(int version = 0)
+	void print(int version = 0) const
 	{
 		// nie mozna wydrukowac pustego drzewa
 		if (_root.empty())
@@ -188,7 +203,7 @@ public:
 		if (version == 0)
 			version = getCurrentVersion();
 		int i = 1;
-		Node<Type> * root = _root[version];
+		Node<Type> * root = _root.at(version);
 		Node<Type> * right = root->getRightChild(version);
 		Node<Type> * left = root->getLeftChild(version);
 		printNode(right, version, i);
@@ -203,9 +218,9 @@ private:
 	/// <param name="value">Wartosc dziecka.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <returns>Jezeli rodzic istnieje, to wskaznik na niego, jezeli nie, to nullptr</returns>
-	Node<Type> * getParentNode(Type value, int version)
+	Node<Type> * getParentNode(Type value, int version) const
 	{
-		Node<Type> * currentNode = _root[version];
+		Node<Type> * currentNode = _root.at(version);
 		if (currentNode->getValue() == value)
 			return nullptr;
 		bool found = false;
@@ -238,7 +253,7 @@ private:
 	/// <param name="node">Wezel.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <param name="level">Poziom w drzwie.</param>
-	void printNode(Node<Type> * node, int version, int level)
+	void printNode(Node<Type> * node, int version, int level) const
 	{
 		if (node == nullptr)
 			return;

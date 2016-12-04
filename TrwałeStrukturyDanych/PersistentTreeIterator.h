@@ -30,6 +30,11 @@ public:
 	/// <param name="version">Wersja po ktorej nalezy przeszukiwac.</param>
 	PersistentTreeIterator(Node<UnqualifiedType> * root, int version) : version(version)
 	{
+		if (root == nullptr)
+		{
+			itr = nullptr;
+			return;
+		}
 		bool end = false;
 		Node<Type> * currentNode = root;
 		stack.push(root);
@@ -120,7 +125,7 @@ public:
 	/// Operator dereferencji
 	/// </summary>
 	/// <returns></returns>
-	Type & operator * () const
+	Type & operator * ()
 	{
 		return itr->getValue();
 	}
@@ -129,7 +134,7 @@ public:
 	/// Operator dostepu do przechowywanej wartosci
 	/// </summary>
 	/// <returns></returns>
-	Type & operator -> () const
+	Type & operator -> ()
 	{
 		return itr->getValue();
 	}

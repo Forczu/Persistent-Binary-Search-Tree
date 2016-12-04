@@ -119,12 +119,12 @@ public:
 	}
 
 	/// <summary>
-	/// Operator dostepu do przechowywanej wartosci
+	/// Zwraca wezel drzewa.
 	/// </summary>
 	/// <returns></returns>
-	Type & operator -> ()
+	NodePtr getNode()
 	{
-		return itr->getValue();
+		return itr;
 	}
 
 private:

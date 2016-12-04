@@ -4,7 +4,7 @@
 
 void findValue(PersistentTree<int> const & tree, int value, int version)
 {
-	std::cout << (tree.find(value, version) != tree.end() ? "true" : "false") << std::endl;
+	std::cout << (tree.find(value, version) != nullptr ? "true" : "false") << std::endl;
 }
 
 void getCount(PersistentTree<int> const & tree, int version)
@@ -21,9 +21,11 @@ int main()
 	tree.insert(5);
 	tree.insert(3);
 	tree.insert(1);
+	tree.erase(7);
+	tree.erase(2);
 
 	// wydrukowanie drzew na konsoli
-	for (int i = 1; i <= 6; ++i)
+	for (int i = 1; i <= 15; ++i)
 	{
 		tree.print(i);
 		std::cout << std::endl;

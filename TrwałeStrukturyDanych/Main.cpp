@@ -17,6 +17,20 @@ int main()
 		tree.print(i);
 		std::cout << std::endl;
 	}
-
+	// iteracja po najswiezszej wersji
+	std::cout << "Najnowsza wersja: ";
+	for (PersistentTree<int>::iterator it = tree.begin(); it != tree.end(); ++it)
+	{
+		std::cout << *it << ' ';
+	}
+	std::cout << std::endl;
+	// iteracji po wersji historycznej
+	std::cout << "Wersja nr 4: ";
+	for (PersistentTree<int>::iterator it = tree.begin(4); it != tree.end(); it++)
+	{
+		std::cout << *it << ' ';
+	}
+	std::cout << std::endl;
+	getchar();
 	return 0;
 }

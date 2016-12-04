@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 
 /// <summary>
 /// Typ zmiany w wezle drzewa
@@ -14,16 +15,18 @@ enum ChangeType
 template<class Type>
 class Node
 {
+	typedef std::shared_ptr<Node<Type>> NodePtr;
 public:
 	// pole zmiany
 	ChangeType _changeType;
 	int _changeTime;
-	Node<Type> * _changeChild;
+	NodePtr _changeChild;
 private:
 	// pole drzewa
-	Node<Type> * _rightChild;
+	NodePtr _rightChild;
 	Type _value;
-	Node<Type> * _leftChild;
+	NodePtr _leftChild;
+
 public:
 	Node(Type value)
 	{
@@ -36,14 +39,19 @@ public:
 		_value = value;
 	}
 
+	~Node()
+	{
+		_changeChild = _rightChild = _leftChild = nullptr;
+	}
+
 	/// <summary>
 	/// Zwraca lewe dziecko zgodnie z podana wersja.
 	/// </summary>
 	/// <param name="version">Wersja.</param>
 	/// <returns></returns>
-	Node<Type> * getLeftChild(int version) const
+	NodePtr getLeftChild(int version) const
 	{
-		Node<Type> * left = _changeType == LeftChild && version >= _changeTime ? _changeChild : _leftChild;
+		NodePtr left = _changeType == LeftChild && version >= _changeTime ? _changeChild : _leftChild;
 		return left;
 	}
 
@@ -52,9 +60,9 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja.</param>
 	/// <returns></returns>
-	Node<Type> * getRightChild(int version) const
+	NodePtr getRightChild(int version) const
 	{
-		Node<Type> * right = _changeType == RightChild && version >= _changeTime ? _changeChild : _rightChild;
+		NodePtr right = _changeType == RightChild && version >= _changeTime ? _changeChild : _rightChild;
 		return right;
 	}
 
@@ -67,12 +75,12 @@ public:
 		return _value;
 	}
 
-	void setLeftChild(Node<Type> * child)
+	void setLeftChild(NodePtr child)
 	{
 		_leftChild = child;
 	}
 
-	void setRightChild(Node<Type> * child)
+	void setRightChild(NodePtr child)
 	{
 		_rightChild = child;
 	}

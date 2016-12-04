@@ -9,9 +9,11 @@
 template<class Type, class UnqualifiedType = std::remove_cv_t<Type>>
 class PersistentTreeIterator : public std::iterator<std::forward_iterator_tag, UnqualifiedType, std::ptrdiff_t, Type*, Type&>
 {
-	Node<UnqualifiedType> * itr;
-	std::stack<Node<UnqualifiedType>*> stack;
+	std::shared_ptr<Node<UnqualifiedType>> itr;
+	std::stack<std::shared_ptr<Node<UnqualifiedType>>> stack;
 	int version;
+
+	typedef std::shared_ptr<Node<Type>> NodePtr;
 
 public:
 
@@ -28,7 +30,7 @@ public:
 	/// </summary>
 	/// <param name="root">Korzen drzewa poszukiwan.</param>
 	/// <param name="version">Wersja po ktorej nalezy przeszukiwac.</param>
-	PersistentTreeIterator(Node<UnqualifiedType> * root, int version) : version(version)
+	PersistentTreeIterator(std::shared_ptr<Node<UnqualifiedType>> root, int version) : version(version)
 	{
 		if (root == nullptr)
 		{
@@ -36,11 +38,11 @@ public:
 			return;
 		}
 		bool end = false;
-		Node<Type> * currentNode = root;
+		NodePtr currentNode = root;
 		stack.push(root);
 		while (!end)
 		{
-			Node<Type> * left = currentNode->getLeftChild(version);
+			NodePtr left(currentNode->getLeftChild(version));
 			if (left != nullptr)
 			{
 				stack.push(left);
@@ -131,19 +133,19 @@ private:
 	/// </summary>
 	/// <param name="version">Wersja.</param>
 	/// <returns></returns>
-	Node<Type> * next(int version)
+	NodePtr next(int version)
 	{
-		Node<Type> * node = stack.top();
+		NodePtr node(stack.top());
 		stack.pop();
-		Node<Type> * result = node;
-		Node<Type> * right = node->getRightChild(version);
+		NodePtr result(node);
+		NodePtr right(node->getRightChild(version));
 		if (right != nullptr)
 		{
 			node = right;
 			while (node != nullptr)
 			{
 				stack.push(node);
-				Node<Type> * left = node->getLeftChild(version);
+				NodePtr left(node->getLeftChild(version));
 				node = left;
 			}
 		}

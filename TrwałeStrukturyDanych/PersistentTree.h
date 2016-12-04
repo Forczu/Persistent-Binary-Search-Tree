@@ -11,6 +11,8 @@
 template<class Type>
 class PersistentTree
 {	
+	typedef std::shared_ptr<Node<Type>> NodePtr;
+
 	/// <summary>
 	/// Aktualna wersja drzewa. Zaczyna sie od jedynki, kazda nowa wersja skutkuje inkrementacja tej wartosci
 	/// </summary>
@@ -19,7 +21,7 @@ class PersistentTree
 	/// <summary>
 	/// Punkty wejscia do drzewa. Klucz oznacza numer historii, wartoscia jest wskaznik na korzen
 	/// </summary>
-	std::map<int, Node<Type>*> _root;
+	std::map<int, NodePtr> _root;
 
 public:
 	typedef PersistentTreeIterator<Type> iterator;
@@ -101,7 +103,7 @@ public:
 		if (version == 0)
 			version = getCurrentVersion();
 		bool found = false;
-		Node<Type> * currentNode = _root.at(version);
+		NodePtr currentNode = _root.at(version);
 		while (!found)
 		{
 			if (value < currentNode->getValue())
@@ -134,23 +136,23 @@ public:
 		if (_version == 0)
 		{
 			++_version;
-			Node<Type> * node = new Node<Type>(value);
+			NodePtr node(new Node<Type>(value));
 			_root[_version] = node;
 		}
 		else
 		{
 			// utworzenie nowego dziecka
-			Node<Type> * newChild = new Node<Type>(value);
+			NodePtr newChild(new Node<Type>(value));
 			// uwzglednienie zmian w rodzicach. Jezeli wezel rodzicielski
 			// posiada juz zajety wskaznik zmiany, zostaje on skopiowany
 			// wowczas kolejni rodzice tak samo, jezeli ich pole zmian jest zajete
 			// w najgorszym wypadku zostaje utworzony nowy korzen
 			bool stop = false;
-			Node<Type> * currentChild = newChild;
+			NodePtr currentChild(newChild);
 			int currentChildValue = value;
 			do
 			{
-				Node<Type> * currentParent = getParentNode(currentChildValue, _version);
+				NodePtr currentParent = getParentNode(currentChildValue, _version);
 				// brak rodzica -> dziecko jest nowym korzeniem
 				if (currentParent == nullptr)
 				{
@@ -178,7 +180,7 @@ public:
 					// powoduje wykonanie kolejnej iteracji
 					else
 					{
-						Node<Type> * newParent = new Node<Type>(currentParent->getValue());
+						NodePtr newParent (new Node<Type>(currentParent->getValue()));
 						if (currentParent->_changeType == LeftChild)
 							newParent->setLeftChild(currentParent->_changeChild);
 						else
@@ -207,9 +209,9 @@ public:
 		if (version == 0)
 			version = getCurrentVersion();
 		int i = 1;
-		Node<Type> * root = _root.at(version);
-		Node<Type> * right = root->getRightChild(version);
-		Node<Type> * left = root->getLeftChild(version);
+		NodePtr root = _root.at(version);
+		NodePtr right = root->getRightChild(version);
+		NodePtr left = root->getLeftChild(version);
 		printNode(right, version, i);
 		std::cout << root->getValue() << std::endl;
 		printNode(left, version, i);
@@ -222,15 +224,15 @@ private:
 	/// <param name="value">Wartosc dziecka.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <returns>Jezeli rodzic istnieje, to wskaznik na niego, jezeli nie, to nullptr</returns>
-	Node<Type> * getParentNode(Type value, int version) const
+	NodePtr getParentNode(Type value, int version) const
 	{
-		Node<Type> * currentNode = _root.at(version);
+		NodePtr currentNode = _root.at(version);
 		if (currentNode->getValue() == value)
 			return nullptr;
 		bool found = false;
 		while (!found)
 		{
-			Node<Type> * left, *right;
+			NodePtr left, right;
 			left = currentNode->getLeftChild(version);
 			right = currentNode->getRightChild(version);
 			if (value < currentNode->getValue())
@@ -257,12 +259,12 @@ private:
 	/// <param name="node">Wezel.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <param name="level">Poziom w drzwie.</param>
-	void printNode(Node<Type> * node, int version, int level) const
+	void printNode(NodePtr node, int version, int level) const
 	{
 		if (node == nullptr)
 			return;
-		Node<Type> * right = node->getRightChild(version);
-		Node<Type> * left = node->getLeftChild(version);
+		NodePtr right = node->getRightChild(version);
+		NodePtr left = node->getLeftChild(version);
 		if (right != nullptr)
 			printNode(right, version, level + 1);
 		for (int i = 0; i < level; i++)

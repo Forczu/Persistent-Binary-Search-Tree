@@ -48,11 +48,10 @@ public:
 			}
 			else
 			{
+				itr = next(version);
 				end = true;
 			}
 		}
-		itr = stack.top();
-		stack.pop();
 	}
 
 	/// <summary>
@@ -66,20 +65,7 @@ public:
 			itr = nullptr;
 			return *this;
 		}
-		Node<Type> * node = stack.top();
-		stack.pop();
-		itr = node;
-		Node<Type> * right = node->getRightChild(version);
-		if (right != nullptr)
-		{
-			node = right;
-			while (node != nullptr)
-			{
-				stack.push(node);
-				Node<Type> * left = node->getLeftChild(version);
-				node = left;
-			}
-		}
+		itr = next(version);
 		return *this;
 	}
 
@@ -138,4 +124,30 @@ public:
 	{
 		return itr->getValue();
 	}
+
+private:
+	/// <summary>
+	/// Zwraca kolejny wezek drzewa
+	/// </summary>
+	/// <param name="version">Wersja.</param>
+	/// <returns></returns>
+	Node<Type> * next(int version)
+	{
+		Node<Type> * node = stack.top();
+		stack.pop();
+		Node<Type> * result = node;
+		Node<Type> * right = node->getRightChild(version);
+		if (right != nullptr)
+		{
+			node = right;
+			while (node != nullptr)
+			{
+				stack.push(node);
+				Node<Type> * left = node->getLeftChild(version);
+				node = left;
+			}
+		}
+		return result;
+	}
+
 };

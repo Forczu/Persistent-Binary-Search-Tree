@@ -58,9 +58,13 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
 	/// <returns></returns>
-	int count(int version = 0)
+	int count(int version = 0) const
 	{
-		
+		if (version == 0)
+			version = getCurrentVersion();
+		int count = 0;
+		for (iterator it = begin(version); it != end(); ++it, ++count) { }
+		return count;
 	}
 
 	/// <summary>

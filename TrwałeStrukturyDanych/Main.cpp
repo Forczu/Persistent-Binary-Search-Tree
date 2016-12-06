@@ -20,9 +20,9 @@ int main()
 	tree.insert(2);
 	tree.insert(5);
 	tree.insert(3);
-	tree.insert(1);
-	tree.erase(7);
 	tree.erase(2);
+	tree.erase(3);
+	tree.erase(7);
 
 	// wydrukowanie drzew na konsoli
 	for (int i = 1; i <= 15; ++i)

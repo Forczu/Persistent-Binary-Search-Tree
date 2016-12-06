@@ -6,7 +6,7 @@
 /// </summary>
 enum ChangeType
 {
-	None, LeftChild, RightChild
+	None, LeftChild, RightChild, Value
 };
 
 /// <summary>
@@ -17,10 +17,20 @@ class Node
 {
 	typedef std::shared_ptr<Node<Type>> NodePtr;
 public:
+	template<class Type>	
+	union ChangeField
+	{
+		std::shared_ptr<Node<Type>> child;
+		Type value;
+		ChangeField() : child(nullptr) { }
+		~ChangeField() {}
+	};
+
+public:
 	// pole zmiany
 	ChangeType _changeType;
 	int _changeTime;
-	NodePtr _changeChild;
+	ChangeField<Type> _change;
 private:
 	// pole drzewa
 	NodePtr _rightChild;
@@ -28,12 +38,11 @@ private:
 	NodePtr _leftChild;
 
 public:
-	Node(Type value)
+	Node(Type value) : _change()
 	{
 		// brak zmiany
 		_changeType = None;
 		_changeTime = 0;
-		_changeChild = nullptr;
 		// wezel bez dzieci i z wartoscia
 		_rightChild = _leftChild = nullptr;
 		_value = value;
@@ -41,7 +50,8 @@ public:
 
 	~Node()
 	{
-		_changeChild = _rightChild = _leftChild = nullptr;
+		_change.child = nullptr;
+		_rightChild = _leftChild = nullptr;
 	}
 
 	/// <summary>
@@ -51,7 +61,7 @@ public:
 	/// <returns></returns>
 	NodePtr getLeftChild(int version) const
 	{
-		NodePtr left = _changeType == LeftChild && version >= _changeTime ? _changeChild : _leftChild;
+		NodePtr left = _changeType == LeftChild && version >= _changeTime ? _change.child : _leftChild;
 		return left;
 	}
 
@@ -62,7 +72,7 @@ public:
 	/// <returns></returns>
 	NodePtr getRightChild(int version) const
 	{
-		NodePtr right = _changeType == RightChild && version >= _changeTime ? _changeChild : _rightChild;
+		NodePtr right = _changeType == RightChild && version >= _changeTime ? _change.child : _rightChild;
 		return right;
 	}
 
@@ -70,9 +80,10 @@ public:
 	/// Zwraca wartosc przechowywana przez wezel.
 	/// </summary>
 	/// <returns></returns>
-	Type & getValue()
+	Type & getValue(int version)
 	{
-		return _value;
+		int value = _changeType == Value && version >= _changeTime ? _change.value : _value;
+		return value;
 	}
 
 	void setLeftChild(NodePtr child)
@@ -83,5 +94,36 @@ public:
 	void setRightChild(NodePtr child)
 	{
 		_rightChild = child;
+	}
+
+	void setValue(Type value)
+	{
+		_value = value;
+	}
+
+	/// <summary>
+	/// Ustawia zmiane w postaci zmiany wskaznika na dziecko.
+	/// </summary>
+	/// <param name="type">Typ zmiany.</param>
+	/// <param name="child">Dziecko.</param>
+	/// <param name="time">Wersja drzewa.</param>
+	void setChange(ChangeType type, NodePtr child, int time)
+	{
+		_changeType = type;
+		_changeTime = time;
+		_change.child = child;
+	}
+
+	/// <summary>
+	/// Ustawia zmiane w postaci zmiany wartosci w wezle.
+	/// </summary>
+	/// <param name="type">Typ zmiany.</param>
+	/// <param name="value">Wartosc.</param>
+	/// <param name="time">Wersja drzewa.</param>
+	void setChange(ChangeType type, int value, int time)
+	{
+		_changeType = type;
+		_changeTime = time;
+		_change.value = value;
 	}
 };

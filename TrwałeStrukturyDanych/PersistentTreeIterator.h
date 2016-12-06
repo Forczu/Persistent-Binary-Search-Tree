@@ -95,7 +95,7 @@ public:
 			return true;
 		if ((itr != nullptr && rhs.itr == nullptr) || (itr == nullptr && rhs.itr != nullptr))
 			return false;
-		return itr->getValue() == rhs.itr->getValue();
+		return itr->getValue(version) == rhs.itr->getValue(version);
 	}
 
 	/// <summary>
@@ -115,7 +115,7 @@ public:
 	/// <returns></returns>
 	Type & operator * ()
 	{
-		return itr->getValue();
+		return itr->getValue(version);
 	}
 
 	/// <summary>

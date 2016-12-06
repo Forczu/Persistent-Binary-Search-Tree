@@ -13,6 +13,9 @@ class PersistentTree
 {	
 	typedef std::shared_ptr<Node<Type>> NodePtr;
 
+	static const int FIRST_VERSION = 0;
+	static const int CURRENT_VERSION = -1;
+
 	/// <summary>
 	/// Aktualna wersja drzewa. Zaczyna sie od jedynki, kazda nowa wersja skutkuje inkrementacja tej wartosci
 	/// </summary>
@@ -30,7 +33,7 @@ public:
 	/// <summary>
 	/// Tworzy nowe, puste drzewo bez historii.
 	/// </summary>
-	PersistentTree() : _version(0)
+	PersistentTree() : _version(FIRST_VERSION)
 	{
 	}
 
@@ -39,9 +42,9 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
 	/// <returns></returns>
-	iterator begin(int version = 0) const
+	iterator begin(int version = CURRENT_VERSION) const
 	{
-		if (version == 0)
+		if (version == CURRENT_VERSION)
 			version = getCurrentVersion();
 		iterator it(_root.at(version), version);
 		return it;
@@ -60,9 +63,9 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
 	/// <returns></returns>
-	int count(int version = 0) const
+	int count(int version = CURRENT_VERSION) const
 	{
-		if (version == 0)
+		if (version == CURRENT_VERSION)
 			version = getCurrentVersion();
 		int count = 0;
 		for (iterator it = begin(version); it != end(); ++it, ++count) { }
@@ -74,9 +77,9 @@ public:
 	/// </summary>
 	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
 	/// <returns></returns>
-	iterator end(int version = 0) const
+	iterator end(int version = CURRENT_VERSION) const
 	{
-		if (version == 0)
+		if (version == CURRENT_VERSION)
 			version = getCurrentVersion();
 		iterator it;
 		return it;
@@ -88,66 +91,55 @@ public:
 	/// <param name="value">Wartosc do usuniecia.</param>
 	void erase(Type value)
 	{
-		NodePtr node = find(value, getCurrentVersion());
+		int version = getCurrentVersion();
+		NodePtr node = find(value, version);
 		// brak wartosci w drzwie
 		if (node == nullptr)
 			return;
+		_root[version + 1] = _root[version];
+		auto rightChild = node->getRightChild(version);
+		auto leftChild  = node->getLeftChild(version);
+		auto parent = getParentNode(node->getValue(version) , version);
+		bool isLeftChild = parent->getLeftChild(version) == node ? true : false;
 		// brak dzieci
-		if (node->getRightChild(_version) == nullptr && node->getLeftChild(_version) == nullptr)
+		if (rightChild == nullptr && leftChild == nullptr)
 		{
 			// rodzic otrzymuje zmiane na nullptr
-			setNewChildForMyParent(node, nullptr);
+			setNewChildForMe(parent, nullptr, isLeftChild, version + 1);
 		}
 		// lewe dziecko istnieje
-		else if (node->getRightChild(_version) == nullptr && node->getLeftChild(_version) != nullptr)
+		else if (rightChild == nullptr && leftChild != nullptr)
 		{
 			// rodzic otrzymuje zmiane na lewego potomka swego dziecka
-			setNewChildForMyParent(node, node->getLeftChild(_version));
+			setNewChildForMe(parent, leftChild, isLeftChild, version + 1);
 		}
 		// prawe dziecko istnieje
-		else if (node->getRightChild(_version) != nullptr && node->getLeftChild(_version) == nullptr)
+		else if (rightChild != nullptr && leftChild == nullptr)
 		{
 			// rodzic otrzymuje zmiane na prawego potomka swego dziecka
-			setNewChildForMyParent(node, node->getRightChild(_version));
+			setNewChildForMe(parent, rightChild, isLeftChild, version + 1);
 		}
 		// dwoje dzieci istnieje
 		else
 		{
-			NodePtr largestInLeftSubtree = node->getLeftChild(_version);;
+			// wezlem zostaje najwieksza wartosc w lewym poddrzwie usuwanego wezla
+			NodePtr largestInLeftSubtree = node->getLeftChild(version);
 			bool found = false;
 			while (!found)
 			{
-				if (largestInLeftSubtree->getRightChild(_version) != nullptr)
-					largestInLeftSubtree = largestInLeftSubtree->getRightChild(_version);
+				if (largestInLeftSubtree->getRightChild(version) != nullptr)
+					largestInLeftSubtree = largestInLeftSubtree->getRightChild(version);
 				else
 					found = true;
 			}
-			NodePtr smallestInRightSubtree = largestInLeftSubtree->getRightChild(_version);
-			if (smallestInRightSubtree != nullptr)
-			{
-				found = false;
-				while (!found)
-				{
-					if (smallestInRightSubtree->getLeftChild(_version) != nullptr)
-						smallestInRightSubtree = smallestInRightSubtree->getLeftChild(_version);
-					else
-						found = true;
-				}
-				setNewChildForMyParent(largestInLeftSubtree, smallestInRightSubtree);
-			}
-			NodePtr largestInLeftSubtreeLeftChild = largestInLeftSubtree->getLeftChild(_version);
-			NodePtr largestInLeftSubtreeParent = getParentNode(largestInLeftSubtree->getValue(), _version);
-
-			if (largestInLeftSubtreeLeftChild != nullptr)
-				setNewChildForMe(largestInLeftSubtreeParent, largestInLeftSubtreeLeftChild);
-
-			if (node->getLeftChild(_version) != nullptr && node->getLeftChild(_version) != largestInLeftSubtree)
-				setNewChildForMe(largestInLeftSubtree, node->getLeftChild(_version));
-			if (node->getRightChild(_version) != nullptr)
-				setNewChildForMe(largestInLeftSubtree, node->getRightChild(_version));
-
-			setNewChildForMyParent(node, largestInLeftSubtree);
+			NodePtr largestInLeftSubtreeLeftChild = largestInLeftSubtree->getLeftChild(version);
+			int value = largestInLeftSubtree->getValue(version);
+			NodePtr largestInLeftSubtreeParent = getParentNode(largestInLeftSubtree->getValue(version), version);
+			bool isLeftChild = largestInLeftSubtreeParent->getLeftChild(version) == largestInLeftSubtree ? true : false;
+			setNewChildForMe(largestInLeftSubtreeParent, largestInLeftSubtreeLeftChild, isLeftChild, version + 1);
+			changeValue(node, value, version + 1);
 		}
+		confirmChange();
 	}
 	
 	/// <summary>
@@ -157,17 +149,17 @@ public:
 	/// <param name="value">Wartosc do wyszukania.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <returns></returns>
-	NodePtr find(Type value, int version = 0) const
+	NodePtr find(Type value, int version = CURRENT_VERSION) const
 	{
-		if (version == 0)
+		if (version == CURRENT_VERSION)
 			version = getCurrentVersion();
 		bool found = false;
 		NodePtr currentNode = _root.at(version);
 		while (!found)
 		{
-			if (value < currentNode->getValue())
+			if (value < currentNode->getValue(version))
 				currentNode = currentNode->getLeftChild(version);
-			else if (value > currentNode->getValue())
+			else if (value > currentNode->getValue(version))
 				currentNode = currentNode->getRightChild(version);
 			else
 				found = true;
@@ -192,7 +184,7 @@ public:
 	/// <param name="value">Wartosc do umieszczenia.</param>
 	void insert(Type value)
 	{
-		if (_version == 0)
+		if (_version == FIRST_VERSION)
 		{
 			++_version;
 			NodePtr node(new Node<Type>(value));
@@ -224,13 +216,9 @@ public:
 					// jezeli w rodzicu nie ma zmiany, to ja wprowadzamy
 					if (currentParent->_changeType == None)
 					{
-						if (currentChildValue < currentParent->getValue())
-							currentParent->_changeType = LeftChild;
-						else
-							currentParent->_changeType = RightChild;
+						ChangeType type = currentChildValue < currentParent->getValue(_version) ? LeftChild : RightChild;
 						++_version;
-						currentParent->_changeTime = _version;
-						currentParent->_changeChild = currentChild;
+						currentParent->setChange(type, currentChild, _version);
 						_root[_version] = _root[_version - 1];
 						stop = true;
 					}
@@ -239,17 +227,20 @@ public:
 					// powoduje wykonanie kolejnej iteracji
 					else
 					{
-						NodePtr newParent (new Node<Type>(currentParent->getValue()));
+						// nowy rodzic z nowa wartoscia
+						int parentValue = currentParent->getValue(_version);
+						NodePtr newParent(new Node<Type>(parentValue));
+						// ustaw dzieci
 						if (currentParent->_changeType == LeftChild)
-							newParent->setLeftChild(currentParent->_changeChild);
-						else
-							newParent->setRightChild(currentParent->_changeChild);
-						if (currentChildValue < currentParent->getValue())
+							newParent->setLeftChild(currentParent->_change.child);
+						else if (currentParent->_changeType == RightChild)
+							newParent->setRightChild(currentParent->_change.child);
+						if (currentChildValue < parentValue)
 							newParent->setLeftChild(currentChild);
 						else
 							newParent->setRightChild(currentChild);
 						currentChild = newParent;
-						currentChildValue = currentChild->getValue();
+						currentChildValue = currentChild->getValue(_version);
 					}
 				}
 			} while (!stop);
@@ -259,13 +250,13 @@ public:
 	/// <summary>
 	/// Drukuje drzewo na konsoli
 	/// </summary>
-	void print(int version = 0) const
+	void print(int version = CURRENT_VERSION) const
 	{
 		// nie mozna wydrukowac pustego drzewa
 		if (_root.empty())
 			return;
 		// w przypadku braku parametru lub rownym zero, drukowana jest najswiezsza wersja
-		if (version == 0)
+		if (version == CURRENT_VERSION)
 			version = getCurrentVersion();
 		if (version > getCurrentVersion())
 			return;
@@ -274,7 +265,7 @@ public:
 		NodePtr right = root->getRightChild(version);
 		NodePtr left = root->getLeftChild(version);
 		printNode(right, version, i);
-		std::cout << root->getValue() << std::endl;
+		std::cout << root->getValue(version) << std::endl;
 		printNode(left, version, i);
 	}
 
@@ -288,7 +279,7 @@ private:
 	NodePtr getParentNode(Type value, int version) const
 	{
 		NodePtr currentNode = _root.at(version);
-		if (currentNode->getValue() == value)
+		if (currentNode->getValue(version) == value)
 			return nullptr;
 		bool found = false;
 		while (!found)
@@ -296,16 +287,16 @@ private:
 			NodePtr left, right;
 			left = currentNode->getLeftChild(version);
 			right = currentNode->getRightChild(version);
-			if (value < currentNode->getValue())
+			if (value < currentNode->getValue(version))
 			{
-				if (left == nullptr || left->getValue() == value)
+				if (left == nullptr || left->getValue(version) == value)
 					found = true;
 				else
 					currentNode = left;
 			}
 			else
 			{
-				if (right == nullptr || right->getValue() == value)
+				if (right == nullptr || right->getValue(version) == value)
 					found = true;
 				else
 					currentNode = right;
@@ -332,64 +323,9 @@ private:
 		{
 			std::cout << '\t';
 		}
-		std::cout << node->getValue() << std::endl;
+		std::cout << node->getValue(version) << std::endl;
 		if (left != nullptr)
 			printNode(left, version, level + 1);
-	}
-
-	/// <summary>
-	/// Zmienia potomka (na odpowiedniej pozycji) w rodzicu wskazanego wezla i zapisuje zmiany
-	/// </summary>
-	/// <param name="value">Wartosc.</param>
-	/// <param name="newChild">Nowe dziecko.</param>
-	void setNewChildForMyParent(NodePtr base, NodePtr newChild)
-	{
-		bool stop = false;
-		NodePtr currentChild(newChild);
-		NodePtr currentBase = base;
-		do
-		{
-			NodePtr currentParent = getParentNode(currentBase->getValue(), _version);
-			// brak rodzica -> wstawiamy tam dziecko
-			if (currentParent == nullptr)
-			{
-				++_version;
-				_root[_version] = currentChild;
-				stop = true;
-			}
-			else
-			{
-				// jezeli w rodzicu nie ma zmiany, to ja wprowadzamy
-				if (currentParent->_changeType == None)
-				{
-					if (currentBase->getValue() < currentParent->getValue())
-						currentParent->_changeType = LeftChild;
-					else
-						currentParent->_changeType = RightChild;
-					++_version;
-					currentParent->_changeTime = _version;
-					currentParent->_changeChild = currentChild;
-					_root[_version] = _root[_version - 1];
-					stop = true;
-				}
-				// jezeli w rodzicu jest zmiana, to go kopiujemy
-				// a zmiane wprowadzamy w jego rodzicu
-				// powoduje wykonanie kolejnej iteracji
-				else
-				{
-					NodePtr newParent(new Node<Type>(currentParent->getValue()));
-					if (currentParent->_changeType == LeftChild)
-						newParent->setLeftChild(currentParent->_changeChild);
-					else
-						newParent->setRightChild(currentParent->_changeChild);
-					if (currentBase->getValue() < currentParent->getValue())
-						newParent->setLeftChild(currentChild);
-					else
-						newParent->setRightChild(currentChild);
-					currentChild = currentBase = newParent;
-				}
-			}
-		} while (!stop);
 	}
 
 	/// <summary>
@@ -397,53 +333,129 @@ private:
 	/// </summary>
 	/// <param name="value">Wartosc.</param>
 	/// <param name="newChild">Nowe dziecko.</param>
-	void setNewChildForMe(NodePtr base, NodePtr newChild)
+	void setNewChildForMe(NodePtr parent, NodePtr newChild, bool isLeftChild, int version)
 	{
 		bool stop = false;
-		NodePtr currentChild(newChild);
-		NodePtr currentBase = base;
+		NodePtr currentChild = newChild;
+		NodePtr currentParent = parent;
 		do
 		{
-			NodePtr currentParent = currentBase;
-			// brak rodzica -> wstawiamy tam dziecko
 			if (currentParent == nullptr)
 			{
-				++_version;
-				_root[_version] = currentChild;
+				_root[version] = currentChild;
 				stop = true;
 			}
 			else
 			{
-				// jezeli w rodzicu nie ma zmiany, to ja wprowadzamy
 				if (currentParent->_changeType == None)
 				{
-					if (currentBase->getValue() < currentParent->getValue())
-						currentParent->_changeType = LeftChild;
+					ChangeType type;
+					if (currentChild == nullptr)
+					{
+						type = isLeftChild ? LeftChild : RightChild;
+					}
 					else
-						currentParent->_changeType = RightChild;
-					++_version;
-					currentParent->_changeTime = _version;
-					currentParent->_changeChild = currentChild;
-					_root[_version] = _root[_version - 1];
+					{
+						int childValue = currentChild->getValue(version);
+						int parentValue = currentParent->getValue(version);
+						type = childValue < parentValue ? LeftChild : RightChild;
+					}
+					currentParent->setChange(type, currentChild, version);
 					stop = true;
 				}
-				// jezeli w rodzicu jest zmiana, to go kopiujemy
-				// a zmiane wprowadzamy w jego rodzicu
-				// powoduje wykonanie kolejnej iteracji
 				else
 				{
-					NodePtr newParent(new Node<Type>(currentParent->getValue()));
-					if (currentParent->_changeType == LeftChild)
-						newParent->setLeftChild(currentParent->_changeChild);
+					NodePtr newParent = makeCopy(currentParent, version);
+					if (currentChild != nullptr)
+					{
+						if (currentChild->getValue(version) < newParent->getValue(version))
+							newParent->setLeftChild(currentChild);
+						else
+							newParent->setRightChild(currentChild);
+					}
 					else
-						newParent->setRightChild(currentParent->_changeChild);
-					if (currentBase->getValue() < currentParent->getValue())
-						newParent->setLeftChild(currentChild);
-					else
-						newParent->setRightChild(currentChild);
-					currentChild = currentBase = newParent;
+					{
+						if (isLeftChild)
+							newParent->setLeftChild(currentChild);
+						else
+							newParent->setRightChild(currentChild);
+					}
+					currentChild = newParent;
+					currentParent = getParentNode(currentChild->getValue(version), version);
 				}
 			}
 		} while (!stop);
+	}
+
+	/// <summary>
+	/// Zmienia wartosc w wezle i propaguje te zmiane
+	/// </summary>
+	/// <param name="node">Wezel.</param>
+	/// <param name="value">Nowa wartosc.</param>
+	/// <param name="version">Wersja drzewa.</param>
+	void changeValue(NodePtr node, int value, int version)
+	{
+		bool stop = false;
+		ChangeType type = Value;
+		// jezeli brak zmiany, to tylko ja wprowadzamy
+		if (node->_changeType == None)
+		{
+			node->setChange(type, value, version);
+		}
+		else
+		{
+			bool stop = false;
+			NodePtr currentNode = makeCopy(node, version);
+			NodePtr currentParent = getParentNode(currentNode->getValue(version), version);
+			currentNode->setValue(value);
+			do
+			{
+				if (currentParent == nullptr)
+				{
+					_root[version] = currentNode;
+					stop = true;
+				}
+				else if (currentParent->_changeType == None)
+				{
+					ChangeType type = currentNode->getValue(version) < currentParent->getValue(version) ? LeftChild : RightChild;
+					currentParent->setChange(type, currentNode, version);
+					stop = true;
+				}
+				else
+				{
+					NodePtr newParent = makeCopy(currentParent, version);
+					int nodeValue = currentNode->getValue(version);
+					int parentValue = newParent->getValue(version);
+					if (nodeValue < parentValue)
+						newParent->setLeftChild(currentNode);
+					else
+						newParent->setRightChild(currentNode);
+					currentNode = newParent;
+					currentParent = getParentNode(currentNode->getValue(version), version);
+				}
+			} while (!stop);
+		}
+	}
+
+	/// <summary>
+	/// Tworzy kopie wezla z uwzglednieniem pola zmiany.
+	/// </summary>
+	/// <param name="node">Wezel.</param>
+	/// <param name="version">Wersja drzewa.</param>
+	/// <returns></returns>
+	NodePtr makeCopy(NodePtr node, int version)
+	{
+		NodePtr copy(new Node<Type>(node->getValue(version)));
+		copy->setRightChild(node->getRightChild(version));
+		copy->setLeftChild(node->getLeftChild(version));
+		return copy;
+	}
+
+	/// <summary>
+	/// Potwierdzenie zmiany w historii.
+	/// </summary>
+	void confirmChange()
+	{
+		++_version;
 	}
 };

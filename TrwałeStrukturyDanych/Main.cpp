@@ -28,8 +28,8 @@ int main()
 	for (int i = 1; i <= 15; ++i)
 	{
 		tree.print(i);
-		std::cout << std::endl;
 	}
+	std::cout << std::endl;
 
 	// iteracja po najswiezszej wersji
 	std::cout << "Najnowsza wersja: ";
@@ -56,6 +56,40 @@ int main()
 	// zliczanie elementow
 	getCount(tree, 3);	// oczekiwane 3
 	getCount(tree, 5);	// oczekiwane 5
+
+	// drzewo zbudowane z wektora wartosci
+	std::vector<int> input = { 4, 7, 2, 5, 3, 1 };
+	std::cout << std::endl << "Wektor wejsciowy: ";
+	for (int value : input)
+		std::cout << value << ' ';
+	std::cout << std::endl;
+	PersistentTree<int> tree2(input);
+	std::cout << "Drzewo na podstawie powyzszewgo wektora: " << std::endl;
+	tree2.print();
+	tree2.insert(8);
+	tree2.insert(6);
+	tree2.insert(0);
+	std::cout << "Wersja nr 2: " << std::endl;
+	tree2.print(2);
+	std::cout << std::endl;
+
+	// wyczyszczenie jako nowa zmiana
+	std::cout << "Najnowsza wersja drzewa po czystce: " << std::endl;
+	tree2.clear();
+	tree2.print();
+	std::cout << std::endl;
+	std::cout << "Najnowsza wersja drzewa po czystce i kilku insertach: " << std::endl;
+	tree2.insert(5);
+	tree2.insert(2);
+	tree2.insert(7);
+	tree2.insert(6);
+	tree2.insert(9);
+	tree2.insert(1);
+	tree2.print();
+	std::cout << std::endl;
+	std::cout << "Pierwsza wersja drzewa przed czystka: " << std::endl;
+	tree2.print(3);
+	std::cout << std::endl;
 
 	getchar();
 	return 0;

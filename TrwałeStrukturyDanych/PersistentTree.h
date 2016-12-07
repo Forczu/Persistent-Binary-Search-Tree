@@ -2,6 +2,7 @@
 #include "PersistentTreeIterator.h"
 #include "Node.h"
 #include <map>
+#include <vector>
 
 /// <summary>
 /// Klasa reprezentujaca trwale drzewo poszukiwan binarnych.
@@ -35,6 +36,59 @@ public:
 	/// </summary>
 	PersistentTree() : _version(FIRST_VERSION)
 	{
+		_root[_version] == nullptr;
+	}
+
+	/// <summary>
+	/// Tworzy nowe drzewo z wartosciami wstawianymi wg przekazanego wektora
+	/// Otrzymane drzewo jest wersja zerowa.
+	/// </summary>
+	/// <param name="values">Wartosci poczatkowe.</param>
+	PersistentTree(std::vector<Type> const & values) : _version(FIRST_VERSION)
+	{
+		if (values.empty())
+			return;
+		NodePtr root(new Node<Type>(values.front()));
+		std::vector<Type>::const_iterator it = values.begin();
+		++it;
+		for ( ; it != values.end(); ++it)
+		{
+			NodePtr node(new Node<Type>(*it));
+			NodePtr currentParent = root;
+			bool isSet = false;
+			while (!isSet)
+			{
+				int parentValue = currentParent->getValue(CURRENT_VERSION);
+				int currentValue = node->getValue(CURRENT_VERSION);
+				if (currentValue < parentValue)
+				{
+					NodePtr parentLeftChild = currentParent->getLeftChild(CURRENT_VERSION);
+					if (parentLeftChild == nullptr)
+					{
+						currentParent->setLeftChild(node);
+						isSet = true;
+					}
+					else
+					{
+						currentParent = parentLeftChild;
+					}
+				}
+				else
+				{
+					NodePtr parentRightChild = currentParent->getRightChild(CURRENT_VERSION);
+					if (parentRightChild == nullptr)
+					{
+						currentParent->setRightChild(node);
+						isSet = true;
+					}
+					else
+					{
+						currentParent = parentRightChild;
+					}
+				}
+			}
+		}
+		_root[_version] = root;
 	}
 
 	/// <summary>
@@ -44,18 +98,23 @@ public:
 	/// <returns></returns>
 	iterator begin(int version = CURRENT_VERSION) const
 	{
-		if (version == CURRENT_VERSION)
-			version = getCurrentVersion();
+		if (!getCorrectVersion(version))
+			return end();
 		iterator it(_root.at(version), version);
 		return it;
 	}
-	
+
 	/// <summary>
-	/// Usuwa zawartosc drzewa wraz z historia
+	/// Usuwa calosc drzewa i zapisuje ten stan jako nowa wersje
 	/// </summary>
 	void clear()
 	{
-		_root.clear();
+		auto currentRoot = _root[_version];
+		// jak drzewo juz jest puste to nie ma zmiany
+		if (currentRoot == nullptr)
+			return;
+		confirmChange();
+		_root[_version] = nullptr;
 	}
 	
 	/// <summary>
@@ -65,9 +124,9 @@ public:
 	/// <returns></returns>
 	int count(int version = CURRENT_VERSION) const
 	{
-		if (version == CURRENT_VERSION)
-			version = getCurrentVersion();
 		int count = 0;
+		if (!getCorrectVersion(version))
+			return count;
 		for (iterator it = begin(version); it != end(); ++it, ++count) { }
 		return count;
 	}
@@ -75,12 +134,9 @@ public:
 	/// <summary>
 	/// Zwraca koniec aktualnego drzewa
 	/// </summary>
-	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
 	/// <returns></returns>
-	iterator end(int version = CURRENT_VERSION) const
+	iterator end() const
 	{
-		if (version == CURRENT_VERSION)
-			version = getCurrentVersion();
 		iterator it;
 		return it;
 	}
@@ -151,8 +207,8 @@ public:
 	/// <returns></returns>
 	NodePtr find(Type value, int version = CURRENT_VERSION) const
 	{
-		if (version == CURRENT_VERSION)
-			version = getCurrentVersion();
+		if (!getCorrectVersion(version))
+			return nullptr;
 		bool found = false;
 		NodePtr currentNode = _root.at(version);
 		while (!found)
@@ -184,7 +240,7 @@ public:
 	/// <param name="value">Wartosc do umieszczenia.</param>
 	void insert(Type value)
 	{
-		if (_version == FIRST_VERSION)
+		if (_root.at(_version) == nullptr)
 		{
 			++_version;
 			NodePtr node(new Node<Type>(value));
@@ -253,12 +309,7 @@ public:
 	void print(int version = CURRENT_VERSION) const
 	{
 		// nie mozna wydrukowac pustego drzewa
-		if (_root.empty())
-			return;
-		// w przypadku braku parametru lub rownym zero, drukowana jest najswiezsza wersja
-		if (version == CURRENT_VERSION)
-			version = getCurrentVersion();
-		if (version > getCurrentVersion())
+		if (!getCorrectVersion(version) || _root.at(version) == nullptr)
 			return;
 		int i = 1;
 		NodePtr root = _root.at(version);
@@ -267,6 +318,16 @@ public:
 		printNode(right, version, i);
 		std::cout << root->getValue(version) << std::endl;
 		printNode(left, version, i);
+	}
+
+	/// <summary>
+	/// Usuwa zawartosc drzewa wraz z historia
+	/// </summary>
+	void purge()
+	{
+		_root.clear();
+		_version = FIRST_VERSION;
+		_root[_version] = nullptr;
 	}
 
 private:
@@ -457,5 +518,20 @@ private:
 	void confirmChange()
 	{
 		++_version;
+	}
+
+	/// <summary>
+	/// Zapisuje do referencji poprawna wersja drzewa na podstawie przekazanego argumentu.
+	/// </summary>
+	/// <param name="version">Wersja.</param>
+	/// <returns>True, jezeli poprawna wersja istnieje, false, jezeli nie.</returns>
+	bool getCorrectVersion(int & version) const
+	{
+		int currentVersion = getCurrentVersion();
+		if (version > currentVersion)
+			return false;
+		if (version == CURRENT_VERSION)
+			version = currentVersion;
+		return true;
 	}
 };

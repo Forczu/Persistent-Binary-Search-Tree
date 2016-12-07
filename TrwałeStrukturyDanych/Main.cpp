@@ -91,6 +91,34 @@ int main()
 	tree2.print(3);
 	std::cout << std::endl;
 
+	// Kopia
+	std::cout << "Kopia powyzszego drzewa: " << std::endl;
+	auto copy = tree2.getCopy(3);
+	copy->print(0);
+	std::cout << std::endl;
+	delete copy;
+
+	// Drzewo o przeciwnym porzadku
+	PersistentTree<int, InversedOrderFunctor<int>> treeInv;
+	treeInv.insert(4);
+	treeInv.insert(7);
+	treeInv.insert(2);
+	treeInv.insert(5);
+	treeInv.insert(3);
+	treeInv.insert(1);
+	treeInv.insert(8);
+	treeInv.erase(2);
+	treeInv.erase(3);
+	treeInv.erase(7);
+	std::cout << "Historia drzewa o odwroconym porzadku: " << std::endl;
+	// wydrukowanie drzew na konsoli
+	for (int i = 1; i <= 11; ++i)
+	{
+		treeInv.print(i);
+		std::cout << std::endl;
+	}
+	std::cout << std::endl;
+
 	getchar();
 	return 0;
 }

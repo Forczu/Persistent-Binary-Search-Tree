@@ -2,14 +2,35 @@
 #include "PersistentTreeIterator.h"
 #include "Node.h"
 #include <map>
+#include <queue>
 #include <vector>
+
+template<class Type>
+class DefaultOrderFunctor
+{
+public:
+	bool operator()(Type const  &first, Type const & second) const
+	{
+		return first < second;
+	}
+};
+
+template<class Type>
+class InversedOrderFunctor
+{
+public:
+	bool operator()(Type const & first, Type const & second) const
+	{
+		return first > second;
+	}
+};
 
 /// <summary>
 /// Klasa reprezentujaca trwale drzewo poszukiwan binarnych.
 /// Zastosowany algorytm to metoda Sleatora, Tarjana i innych
-/// Parametr szablonowy Type okresla typ danych, jaki przechowywany w drzewie
+/// Parametr szablonowy Type okresla typ danych, jaki przechowywany w drzewie oraz funkcje porzadku
 /// </summary>
-template<class Type>
+template<class Type, class OrderFunctor = DefaultOrderFunctor<Type>>
 class PersistentTree
 {	
 	typedef std::shared_ptr<Node<Type>> NodePtr;
@@ -26,6 +47,11 @@ class PersistentTree
 	/// Punkty wejscia do drzewa. Klucz oznacza numer historii, wartoscia jest wskaznik na korzen
 	/// </summary>
 	std::map<int, NodePtr> _root;
+
+	/// <summary>
+	/// Obiekt funktora porzadku
+	/// </summary>
+	OrderFunctor orderFunctor;
 
 public:
 	typedef PersistentTreeIterator<Type> iterator;
@@ -60,7 +86,7 @@ public:
 			{
 				int parentValue = currentParent->getValue(CURRENT_VERSION);
 				int currentValue = node->getValue(CURRENT_VERSION);
-				if (currentValue < parentValue)
+				if (orderFunctor(currentValue, parentValue))
 				{
 					NodePtr parentLeftChild = currentParent->getLeftChild(CURRENT_VERSION);
 					if (parentLeftChild == nullptr)
@@ -179,12 +205,14 @@ public:
 		else
 		{
 			// wezlem zostaje najwieksza wartosc w lewym poddrzwie usuwanego wezla
-			NodePtr largestInLeftSubtree = node->getLeftChild(version);
+			bool left = orderFunctor(1, 2);
+			NodePtr largestInLeftSubtree = left ? node->getLeftChild(version) : node->getRightChild(version);
 			bool found = false;
 			while (!found)
 			{
-				if (largestInLeftSubtree->getRightChild(version) != nullptr)
-					largestInLeftSubtree = largestInLeftSubtree->getRightChild(version);
+				NodePtr next = left ? largestInLeftSubtree->getRightChild(version) : largestInLeftSubtree->getLeftChild(version);
+				if (next != nullptr)
+					largestInLeftSubtree = next;
 				else
 					found = true;
 			}
@@ -213,9 +241,9 @@ public:
 		NodePtr currentNode = _root.at(version);
 		while (!found)
 		{
-			if (value < currentNode->getValue(version))
+			if (orderFunctor(value, currentNode->getValue(version)))
 				currentNode = currentNode->getLeftChild(version);
-			else if (value > currentNode->getValue(version))
+			else if (orderFunctor(currentNode->getValue(version), value))
 				currentNode = currentNode->getRightChild(version);
 			else
 				found = true;
@@ -223,6 +251,40 @@ public:
 				found = true;
 		}
 		return currentNode;
+	}
+
+	/// <summary>
+	/// Zwraca kopie drzewa o wskazanej wersji.
+	/// Kopia posiada jedynie te wersje, ktora jest jej pierwsza.
+	/// </summary>
+	/// <param name="version">Wersja.</param>
+	/// <returns></returns>
+	PersistentTree<Type> * getCopy(int version)
+	{
+		if (!getCorrectVersion(version))
+			return nullptr;
+		// wyciagnij wszystkie wartosci z drzewa o podanej wersji
+		NodePtr root = _root[version];
+		// jezeli korzen nie istnieje, zwroc nowe puste drzewo
+		if (root == nullptr)
+			return new PersistentTree();
+		std::queue<NodePtr> queue;
+		std::vector<int> values;
+		queue.push(root);
+		while (!queue.empty())
+		{
+			NodePtr node(queue.front());
+			queue.pop();
+			int value = node->getValue(version);
+			values.push_back(value);
+			NodePtr leftChild = node->getLeftChild(version);
+			NodePtr rightChild = node->getRightChild(version);
+			if (leftChild != nullptr)
+				queue.push(leftChild);
+			if (rightChild != nullptr)
+				queue.push(rightChild);
+		}
+		return new PersistentTree<Type>(values);
 	}
 	
 	/// <summary>
@@ -272,7 +334,7 @@ public:
 					// jezeli w rodzicu nie ma zmiany, to ja wprowadzamy
 					if (currentParent->_changeType == None)
 					{
-						ChangeType type = currentChildValue < currentParent->getValue(_version) ? LeftChild : RightChild;
+						ChangeType type = orderFunctor(currentChildValue, currentParent->getValue(_version)) ? LeftChild : RightChild;
 						++_version;
 						currentParent->setChange(type, currentChild, _version);
 						_root[_version] = _root[_version - 1];
@@ -291,7 +353,7 @@ public:
 							newParent->setLeftChild(currentParent->_change.child);
 						else if (currentParent->_changeType == RightChild)
 							newParent->setRightChild(currentParent->_change.child);
-						if (currentChildValue < parentValue)
+						if (orderFunctor(currentChildValue, parentValue))
 							newParent->setLeftChild(currentChild);
 						else
 							newParent->setRightChild(currentChild);
@@ -348,7 +410,7 @@ private:
 			NodePtr left, right;
 			left = currentNode->getLeftChild(version);
 			right = currentNode->getRightChild(version);
-			if (value < currentNode->getValue(version))
+			if (orderFunctor(value, currentNode->getValue(version)))
 			{
 				if (left == nullptr || left->getValue(version) == value)
 					found = true;
@@ -419,7 +481,7 @@ private:
 					{
 						int childValue = currentChild->getValue(version);
 						int parentValue = currentParent->getValue(version);
-						type = childValue < parentValue ? LeftChild : RightChild;
+						type = orderFunctor(childValue, parentValue) ? LeftChild : RightChild;
 					}
 					currentParent->setChange(type, currentChild, version);
 					stop = true;
@@ -429,7 +491,7 @@ private:
 					NodePtr newParent = makeCopy(currentParent, version);
 					if (currentChild != nullptr)
 					{
-						if (currentChild->getValue(version) < newParent->getValue(version))
+						if (orderFunctor(currentChild->getValue(version), newParent->getValue(version)))
 							newParent->setLeftChild(currentChild);
 						else
 							newParent->setRightChild(currentChild);
@@ -478,7 +540,7 @@ private:
 				}
 				else if (currentParent->_changeType == None)
 				{
-					ChangeType type = currentNode->getValue(version) < currentParent->getValue(version) ? LeftChild : RightChild;
+					ChangeType type = orderFunctor(currentNode->getValue(version), currentParent->getValue(version)) ? LeftChild : RightChild;
 					currentParent->setChange(type, currentNode, version);
 					stop = true;
 				}
@@ -487,7 +549,7 @@ private:
 					NodePtr newParent = makeCopy(currentParent, version);
 					int nodeValue = currentNode->getValue(version);
 					int parentValue = newParent->getValue(version);
-					if (nodeValue < parentValue)
+					if (orderFunctor(nodeValue, parentValue))
 						newParent->setLeftChild(currentNode);
 					else
 						newParent->setRightChild(currentNode);

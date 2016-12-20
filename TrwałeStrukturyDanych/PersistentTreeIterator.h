@@ -2,6 +2,7 @@
 #include <iterator>
 #include <stack>
 #include "Node.h"
+#include "PersistentTree.h"
 
 /// <summary>
 /// Iterator typu forward, sluzacy do przechodzenia przez cale drzewo poszukiwan binarnych we wskazanej wersji.
@@ -9,7 +10,6 @@
 template<class Type, class UnqualifiedType = std::remove_cv_t<Type>>
 class PersistentTreeIterator : public std::iterator<std::forward_iterator_tag, UnqualifiedType, std::ptrdiff_t, Type*, Type&>
 {
-	std::shared_ptr<Node<UnqualifiedType>> itr;
 	std::stack<std::shared_ptr<Node<UnqualifiedType>>> stack;
 	int version;
 
@@ -21,7 +21,7 @@ public:
 	/// Domyslny konstruktor, rownoznaczny koncowi kolekcji
 	/// </summary>
 	/// <returns></returns>
-	PersistentTreeIterator() : itr(nullptr)
+	PersistentTreeIterator()
 	{
 	}
 
@@ -33,10 +33,7 @@ public:
 	PersistentTreeIterator(std::shared_ptr<Node<UnqualifiedType>> root, int version) : version(version)
 	{
 		if (root == nullptr)
-		{
-			itr = nullptr;
 			return;
-		}
 		bool end = false;
 		NodePtr currentNode = root;
 		stack.push(root);
@@ -50,8 +47,35 @@ public:
 			}
 			else
 			{
-				itr = next(version);
 				end = true;
+			}
+		}
+	}
+
+	template<class OrderFunctor>
+	PersistentTreeIterator(std::shared_ptr<Node<UnqualifiedType>> node, std::shared_ptr<Node<UnqualifiedType>> root, OrderFunctor orderFunctor, int version) : version(version)
+	{
+		if (root == nullptr || node == nullptr)
+			return;
+		bool found = false;
+		NodePtr currentNode = root;
+		int value = node->getValue(version);
+		while (!found)
+		{
+			int currNodeValue = currentNode->getValue(version);
+			if (orderFunctor(value, currNodeValue))
+			{
+				stack.push(currentNode);
+				currentNode = currentNode->getLeftChild(version);
+			}
+			else if (orderFunctor(currNodeValue, value))
+			{
+				currentNode = currentNode->getRightChild(version);
+			}
+			else
+			{
+				stack.push(currentNode);
+				found = true;
 			}
 		}
 	}
@@ -62,12 +86,8 @@ public:
 	/// <returns></returns>
 	PersistentTreeIterator& operator ++ ()
 	{
-		if (stack.empty())
-		{
-			itr = nullptr;
-			return *this;
-		}
-		itr = next(version);
+		if (!stack.empty())
+			next(version);
 		return *this;
 	}
 
@@ -91,11 +111,11 @@ public:
 	template<class OtherType>
 	bool operator == (PersistentTreeIterator<OtherType> const & rhs) const
 	{
-		if (itr == nullptr && rhs.itr == nullptr)
+		if (stack.empty() && rhs.stack.empty())
 			return true;
-		if ((itr != nullptr && rhs.itr == nullptr) || (itr == nullptr && rhs.itr != nullptr))
+		if ((!stack.empty() && rhs.stack.empty()) || (stack.empty() && !rhs.stack.empty()))
 			return false;
-		return itr->getValue(version) == rhs.itr->getValue(version);
+		return stack.top()->getValue(version) == rhs.stack.top()->getValue(version);
 	}
 
 	/// <summary>
@@ -115,7 +135,7 @@ public:
 	/// <returns></returns>
 	Type & operator * ()
 	{
-		return itr->getValue(version);
+		return stack.top()->getValue(version);
 	}
 
 	/// <summary>
@@ -124,12 +144,12 @@ public:
 	/// <returns></returns>
 	NodePtr getNode()
 	{
-		return itr;
+		return stack.top();
 	}
 
 private:
 	/// <summary>
-	/// Zwraca kolejny wezek drzewa
+	/// Zwraca kolejny wezel drzewa
 	/// </summary>
 	/// <param name="version">Wersja.</param>
 	/// <returns></returns>
@@ -137,7 +157,6 @@ private:
 	{
 		NodePtr node(stack.top());
 		stack.pop();
-		NodePtr result(node);
 		NodePtr right(node->getRightChild(version));
 		if (right != nullptr)
 		{
@@ -148,8 +167,8 @@ private:
 				NodePtr left(node->getLeftChild(version));
 				node = left;
 			}
+			return node;
 		}
-		return result;
+		return nullptr;
 	}
-
 };

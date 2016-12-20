@@ -4,12 +4,12 @@
 
 void findValue(PersistentTree<int> const & tree, int value, int version)
 {
-	std::cout << (tree.find(value, version) != nullptr ? "true" : "false") << std::endl;
+	std::cout << (tree.find(value, version) != tree.end() ? "true" : "false") << std::endl;
 }
 
 void getCount(PersistentTree<int> const & tree, int version)
 {
-	std::cout << "Drzewo w wersji " << version << " zawiera " << tree.count(version) << " elementow." << std::endl;
+	std::cout << "Drzewo w wersji " << version << " zawiera " << tree.size(version) << " elementow." << std::endl;
 }
 
 int main()
@@ -63,7 +63,7 @@ int main()
 	for (int value : input)
 		std::cout << value << ' ';
 	std::cout << std::endl;
-	PersistentTree<int> tree2(input);
+	PersistentTree<int> tree2(input.begin(), input.end());
 	std::cout << "Drzewo na podstawie powyzszewgo wektora: " << std::endl;
 	tree2.print();
 	tree2.insert(8);
@@ -99,7 +99,7 @@ int main()
 	delete copy;
 
 	// Drzewo o przeciwnym porzadku
-	PersistentTree<int, InversedOrderFunctor<int>> treeInv;
+	PersistentTree<int, std::greater<int>> treeInv;
 	treeInv.insert(4);
 	treeInv.insert(7);
 	treeInv.insert(2);
@@ -119,6 +119,14 @@ int main()
 	}
 	std::cout << std::endl;
 
+	// wyszukanie i iterowanie
+	std::cout << "Iteracja po drzewie w wersji 7 od elementu '5'" << std::endl;
+	for (auto it = treeInv.find(5, 7); it != treeInv.end(); ++it)
+	{
+		std::cout << *it << ' ';
+	}
+	std::cout << std::endl;
+	
 	getchar();
 	return 0;
 }

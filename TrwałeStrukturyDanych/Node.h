@@ -4,7 +4,7 @@
 /// <summary>
 /// Typ zmiany w wezle drzewa
 /// </summary>
-enum ChangeType
+enum class ChangeType
 {
 	None, LeftChild, RightChild, Value
 };
@@ -26,12 +26,11 @@ public:
 		~ChangeField() {}
 	};
 
-public:
+private:
 	// pole zmiany
 	ChangeType _changeType;
 	int _changeTime;
 	ChangeField<Type> _change;
-private:
 	// pole drzewa
 	NodePtr _rightChild;
 	Type _value;
@@ -41,7 +40,7 @@ public:
 	Node(Type value) : _change()
 	{
 		// brak zmiany
-		_changeType = None;
+		_changeType = ChangeType::None;
 		_changeTime = 0;
 		// wezel bez dzieci i z wartoscia
 		_rightChild = _leftChild = nullptr;
@@ -61,7 +60,7 @@ public:
 	/// <returns></returns>
 	NodePtr getLeftChild(int version) const
 	{
-		NodePtr left = _changeType == LeftChild && version >= _changeTime ? _change.child : _leftChild;
+		NodePtr left = _changeType == ChangeType::LeftChild && version >= _changeTime ? _change.child : _leftChild;
 		return left;
 	}
 
@@ -72,7 +71,7 @@ public:
 	/// <returns></returns>
 	NodePtr getRightChild(int version) const
 	{
-		NodePtr right = _changeType == RightChild && version >= _changeTime ? _change.child : _rightChild;
+		NodePtr right = _changeType == ChangeType::RightChild && version >= _changeTime ? _change.child : _rightChild;
 		return right;
 	}
 
@@ -82,7 +81,7 @@ public:
 	/// <returns></returns>
 	Type & getValue(int version)
 	{
-		int value = _changeType == Value && version >= _changeTime ? _change.value : _value;
+		int value = _changeType == ChangeType::Value && version >= _changeTime ? _change.value : _value;
 		return value;
 	}
 
@@ -125,5 +124,20 @@ public:
 		_changeType = type;
 		_changeTime = time;
 		_change.value = value;
+	}
+
+	ChangeType getChangeType()
+	{
+		return _changeType;
+	}
+
+	int getChangeTime()
+	{
+		return _changeTime;
+	}
+
+	ChangeField<Type> & getChange()
+	{
+		return _change;
 	}
 };

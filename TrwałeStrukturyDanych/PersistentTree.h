@@ -1,36 +1,17 @@
 #pragma once
 #include "PersistentTreeIterator.h"
 #include "Node.h"
+#include <functional>
 #include <map>
 #include <queue>
 #include <vector>
-
-template<class Type>
-class DefaultOrderFunctor
-{
-public:
-	bool operator()(Type const  &first, Type const & second) const
-	{
-		return first < second;
-	}
-};
-
-template<class Type>
-class InversedOrderFunctor
-{
-public:
-	bool operator()(Type const & first, Type const & second) const
-	{
-		return first > second;
-	}
-};
 
 /// <summary>
 /// Klasa reprezentujaca trwale drzewo poszukiwan binarnych.
 /// Zastosowany algorytm to metoda Sleatora, Tarjana i innych
 /// Parametr szablonowy Type okresla typ danych, jaki przechowywany w drzewie oraz funkcje porzadku
 /// </summary>
-template<class Type, class OrderFunctor = DefaultOrderFunctor<Type>>
+template<class Type, class OrderFunctor = std::less<Type>>
 class PersistentTree
 {	
 	typedef std::shared_ptr<Node<Type>> NodePtr;
@@ -46,7 +27,7 @@ class PersistentTree
 	/// <summary>
 	/// Punkty wejscia do drzewa. Klucz oznacza numer historii, wartoscia jest wskaznik na korzen
 	/// </summary>
-	std::map<int, NodePtr> _root;
+	std::vector<NodePtr> _root;
 
 	/// <summary>
 	/// Obiekt funktora porzadku
@@ -62,7 +43,7 @@ public:
 	/// </summary>
 	PersistentTree() : _version(FIRST_VERSION)
 	{
-		_root[_version] == nullptr;
+		_root.push_back(nullptr);
 	}
 
 	/// <summary>
@@ -70,14 +51,13 @@ public:
 	/// Otrzymane drzewo jest wersja zerowa.
 	/// </summary>
 	/// <param name="values">Wartosci poczatkowe.</param>
-	PersistentTree(std::vector<Type> const & values) : _version(FIRST_VERSION)
+	template <class Iter>
+	PersistentTree(Iter begin, Iter end) : _version(FIRST_VERSION)
 	{
-		if (values.empty())
-			return;
-		NodePtr root(new Node<Type>(values.front()));
-		std::vector<Type>::const_iterator it = values.begin();
+		NodePtr root(new Node<Type>(*begin));
+		Iter it = begin;
 		++it;
-		for ( ; it != values.end(); ++it)
+		for ( ; it != end; ++it)
 		{
 			NodePtr node(new Node<Type>(*it));
 			NodePtr currentParent = root;
@@ -114,19 +94,19 @@ public:
 				}
 			}
 		}
-		_root[_version] = root;
+		_root.push_back(root);
 	}
 
 	/// <summary>
 	/// Zwraca iterator na poczatek aktualnego drzewa
 	/// </summary>
-	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
+	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Brak parametru oznacza wersje aktualna</param>
 	/// <returns></returns>
 	iterator begin(int version = CURRENT_VERSION) const
 	{
 		if (!getCorrectVersion(version))
 			return end();
-		iterator it(_root.at(version), version);
+		iterator it(_root[version], version);
 		return it;
 	}
 
@@ -140,21 +120,7 @@ public:
 		if (currentRoot == nullptr)
 			return;
 		confirmChange();
-		_root[_version] = nullptr;
-	}
-	
-	/// <summary>
-	/// Zlicza liczba elementow we wskazanej wersji drzewa.
-	/// </summary>
-	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
-	/// <returns></returns>
-	int count(int version = CURRENT_VERSION) const
-	{
-		int count = 0;
-		if (!getCorrectVersion(version))
-			return count;
-		for (iterator it = begin(version); it != end(); ++it, ++count) { }
-		return count;
+		_root.push_back(nullptr);
 	}
 
 	/// <summary>
@@ -171,14 +137,15 @@ public:
 	/// Usuwa element o podanej wartosci z drzewa. Skutkuje utworzeniem nowej wersji drzewa.
 	/// </summary>
 	/// <param name="value">Wartosc do usuniecia.</param>
-	void erase(Type value)
+	bool erase(Type value)
 	{
 		int version = getCurrentVersion();
-		NodePtr node = find(value, version);
+		iterator it = find(value, version);
 		// brak wartosci w drzwie
-		if (node == nullptr)
-			return;
-		_root[version + 1] = _root[version];
+		if (it == end())
+			return false;
+		NodePtr node = it.getNode();
+		_root.push_back(_root[version]);
 		auto rightChild = node->getRightChild(version);
 		auto leftChild  = node->getLeftChild(version);
 		auto parent = getParentNode(node->getValue(version) , version);
@@ -224,6 +191,7 @@ public:
 			changeValue(node, value, version + 1);
 		}
 		confirmChange();
+		return true;
 	}
 	
 	/// <summary>
@@ -233,12 +201,14 @@ public:
 	/// <param name="value">Wartosc do wyszukania.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <returns></returns>
-	NodePtr find(Type value, int version = CURRENT_VERSION) const
+	iterator find(Type value, int version = CURRENT_VERSION) const
 	{
 		if (!getCorrectVersion(version))
-			return nullptr;
+			return end();
+		NodePtr currentNode = _root[version];
+		if (currentNode == nullptr)
+			return end();
 		bool found = false;
-		NodePtr currentNode = _root.at(version);
 		while (!found)
 		{
 			if (orderFunctor(value, currentNode->getValue(version)))
@@ -250,7 +220,8 @@ public:
 			if (currentNode == nullptr)
 				found = true;
 		}
-		return currentNode;
+		iterator it(currentNode, _root[version], orderFunctor, version);
+		return it;
 	}
 
 	/// <summary>
@@ -284,7 +255,7 @@ public:
 			if (rightChild != nullptr)
 				queue.push(rightChild);
 		}
-		return new PersistentTree<Type>(values);
+		return new PersistentTree<Type>(values.begin(), values.end());
 	}
 	
 	/// <summary>
@@ -300,13 +271,15 @@ public:
 	/// Umieszcza nowy element w drzewie poszukiwan. Skutkuje utworzeniem nowej wersji drzewa.
 	/// </summary>
 	/// <param name="value">Wartosc do umieszczenia.</param>
-	void insert(Type value)
+	bool insert(Type value)
 	{
-		if (_root.at(_version) == nullptr)
+		if (find(value) != end())
+			return false;
+		if (_root[_version] == nullptr)
 		{
 			++_version;
 			NodePtr node(new Node<Type>(value));
-			_root[_version] = node;
+			_root.push_back(node);
 		}
 		else
 		{
@@ -326,18 +299,18 @@ public:
 				if (currentParent == nullptr)
 				{
 					++_version;
-					_root[_version] = currentChild;
+					_root.push_back(currentChild);
 					stop = true;
 				}
 				else
 				{
 					// jezeli w rodzicu nie ma zmiany, to ja wprowadzamy
-					if (currentParent->_changeType == None)
+					if (currentParent->getChangeType() == ChangeType::None)
 					{
-						ChangeType type = orderFunctor(currentChildValue, currentParent->getValue(_version)) ? LeftChild : RightChild;
+						ChangeType type = orderFunctor(currentChildValue, currentParent->getValue(_version)) ? ChangeType::LeftChild : ChangeType::RightChild;
 						++_version;
 						currentParent->setChange(type, currentChild, _version);
-						_root[_version] = _root[_version - 1];
+						_root.push_back(_root[_version - 1]);
 						stop = true;
 					}
 					// jezeli w rodzicu jest zmiana, to go kopiujemy
@@ -349,10 +322,10 @@ public:
 						int parentValue = currentParent->getValue(_version);
 						NodePtr newParent(new Node<Type>(parentValue));
 						// ustaw dzieci
-						if (currentParent->_changeType == LeftChild)
-							newParent->setLeftChild(currentParent->_change.child);
-						else if (currentParent->_changeType == RightChild)
-							newParent->setRightChild(currentParent->_change.child);
+						if (currentParent->getChangeType() == ChangeType::LeftChild)
+							newParent->setLeftChild(currentParent->getChange().child);
+						else if (currentParent->getChangeType() == ChangeType::RightChild)
+							newParent->setRightChild(currentParent->getChange().child);
 						if (orderFunctor(currentChildValue, parentValue))
 							newParent->setLeftChild(currentChild);
 						else
@@ -363,6 +336,7 @@ public:
 				}
 			} while (!stop);
 		}
+		return true;
 	}
 
 	/// <summary>
@@ -371,10 +345,10 @@ public:
 	void print(int version = CURRENT_VERSION) const
 	{
 		// nie mozna wydrukowac pustego drzewa
-		if (!getCorrectVersion(version) || _root.at(version) == nullptr)
+		if (!getCorrectVersion(version) || _root[version] == nullptr)
 			return;
 		int i = 1;
-		NodePtr root = _root.at(version);
+		NodePtr root = _root[version];
 		NodePtr right = root->getRightChild(version);
 		NodePtr left = root->getLeftChild(version);
 		printNode(right, version, i);
@@ -389,7 +363,21 @@ public:
 	{
 		_root.clear();
 		_version = FIRST_VERSION;
-		_root[_version] = nullptr;
+		_root.push_back(nullptr);
+	}
+
+	/// <summary>
+	/// Zlicza liczba elementow we wskazanej wersji drzewa.
+	/// </summary>
+	/// <param name="version">Wersja drzewa, po ktorej nalezy iterowac. Zero oznacza wersje aktualna</param>
+	/// <returns></returns>
+	int size(int version = CURRENT_VERSION) const
+	{
+		int count = 0;
+		if (!getCorrectVersion(version))
+			return count;
+		for (iterator it = begin(version); it != end(); ++it, ++count) {}
+		return count;
 	}
 
 private:
@@ -401,7 +389,7 @@ private:
 	/// <returns>Jezeli rodzic istnieje, to wskaznik na niego, jezeli nie, to nullptr</returns>
 	NodePtr getParentNode(Type value, int version) const
 	{
-		NodePtr currentNode = _root.at(version);
+		NodePtr currentNode = _root[version];
 		if (currentNode->getValue(version) == value)
 			return nullptr;
 		bool found = false;
@@ -470,18 +458,18 @@ private:
 			}
 			else
 			{
-				if (currentParent->_changeType == None)
+				if (currentParent->getChangeType() == ChangeType::None)
 				{
 					ChangeType type;
 					if (currentChild == nullptr)
 					{
-						type = isLeftChild ? LeftChild : RightChild;
+						type = isLeftChild ? ChangeType::LeftChild : ChangeType::RightChild;
 					}
 					else
 					{
 						int childValue = currentChild->getValue(version);
 						int parentValue = currentParent->getValue(version);
-						type = orderFunctor(childValue, parentValue) ? LeftChild : RightChild;
+						type = orderFunctor(childValue, parentValue) ? ChangeType::LeftChild : ChangeType::RightChild;
 					}
 					currentParent->setChange(type, currentChild, version);
 					stop = true;
@@ -519,9 +507,9 @@ private:
 	void changeValue(NodePtr node, int value, int version)
 	{
 		bool stop = false;
-		ChangeType type = Value;
+		ChangeType type = ChangeType::Value;
 		// jezeli brak zmiany, to tylko ja wprowadzamy
-		if (node->_changeType == None)
+		if (node->getChangeType() == ChangeType::None)
 		{
 			node->setChange(type, value, version);
 		}
@@ -538,9 +526,9 @@ private:
 					_root[version] = currentNode;
 					stop = true;
 				}
-				else if (currentParent->_changeType == None)
+				else if (currentParent->getChangeType() == ChangeType::None)
 				{
-					ChangeType type = orderFunctor(currentNode->getValue(version), currentParent->getValue(version)) ? LeftChild : RightChild;
+					ChangeType type = orderFunctor(currentNode->getValue(version), currentParent->getValue(version)) ? ChangeType::LeftChild : ChangeType::RightChild;
 					currentParent->setChange(type, currentNode, version);
 					stop = true;
 				}

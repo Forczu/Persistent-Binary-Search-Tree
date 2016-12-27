@@ -49,7 +49,7 @@ int main()
 
 	// wyszukiwanie po historii
 	findValue(tree, 3, 5); // oczekiwane true
-	findValue(tree, 1, 6); // oczekiwane true
+	findValue(tree, 1, 6); // oczekiwane false
 	findValue(tree, 2, 2); // oczekiwane false
 	findValue(tree, 5, 3); // oczekiwane false
 

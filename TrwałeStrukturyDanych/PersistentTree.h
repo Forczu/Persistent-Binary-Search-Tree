@@ -2,7 +2,6 @@
 #include "PersistentTreeIterator.h"
 #include "Node.h"
 #include <functional>
-#include <map>
 #include <queue>
 #include <vector>
 
@@ -15,6 +14,7 @@ template<class Type, class OrderFunctor = std::less<Type>>
 class PersistentTree
 {	
 	typedef std::shared_ptr<Node<Type>> NodePtr;
+	typedef std::vector<std::pair<int, NodePtr>> RootVec;
 
 	static const int FIRST_VERSION = 0;
 	static const int CURRENT_VERSION = -1;
@@ -27,7 +27,7 @@ class PersistentTree
 	/// <summary>
 	/// Punkty wejscia do drzewa. Klucz oznacza numer historii, wartoscia jest wskaznik na korzen
 	/// </summary>
-	std::vector<NodePtr> _root;
+	RootVec _root;
 
 	/// <summary>
 	/// Obiekt funktora porzadku
@@ -43,7 +43,6 @@ public:
 	/// </summary>
 	PersistentTree() : _version(FIRST_VERSION)
 	{
-		_root.push_back(nullptr);
 	}
 
 	/// <summary>
@@ -94,7 +93,7 @@ public:
 				}
 			}
 		}
-		_root.push_back(root);
+		_root.push_back(std::pair<int, NodePtr>(FIRST_VERSION, root));
 	}
 
 	/// <summary>
@@ -104,9 +103,10 @@ public:
 	/// <returns></returns>
 	iterator begin(int version = CURRENT_VERSION) const
 	{
-		if (!getCorrectVersion(version))
+		NodePtr root = getRoot(version);
+		if (root == nullptr)
 			return end();
-		iterator it(_root[version], version);
+		iterator it(root, version);
 		return it;
 	}
 
@@ -115,12 +115,12 @@ public:
 	/// </summary>
 	void clear()
 	{
-		auto currentRoot = _root[_version];
+		auto currentRoot = getRoot(_version);
 		// jak drzewo juz jest puste to nie ma zmiany
 		if (currentRoot == nullptr)
 			return;
 		confirmChange();
-		_root.push_back(nullptr);
+		_root.push_back(std::pair<int, NodePtr>(_version, nullptr));
 	}
 
 	/// <summary>
@@ -145,7 +145,7 @@ public:
 		if (it == end())
 			return false;
 		NodePtr node = it.getNode();
-		_root.push_back(_root[version]);
+		//_root.push_back(_root[version]);
 		auto rightChild = node->getRightChild(version);
 		auto leftChild  = node->getLeftChild(version);
 		auto parent = getParentNode(node->getValue(version) , version);
@@ -203,11 +203,10 @@ public:
 	/// <returns></returns>
 	iterator find(Type value, int version = CURRENT_VERSION) const
 	{
-		if (!getCorrectVersion(version))
+		NodePtr root = getRoot(version);
+		if (root == nullptr)
 			return end();
-		NodePtr currentNode = _root[version];
-		if (currentNode == nullptr)
-			return end();
+		NodePtr currentNode = root;
 		bool found = false;
 		while (!found)
 		{
@@ -220,7 +219,7 @@ public:
 			if (currentNode == nullptr)
 				found = true;
 		}
-		iterator it(currentNode, _root[version], orderFunctor, version);
+		iterator it(currentNode, root, orderFunctor, version);
 		return it;
 	}
 
@@ -235,7 +234,7 @@ public:
 		if (!getCorrectVersion(version))
 			return nullptr;
 		// wyciagnij wszystkie wartosci z drzewa o podanej wersji
-		NodePtr root = _root[version];
+		NodePtr root = getRoot(version);
 		// jezeli korzen nie istnieje, zwroc nowe puste drzewo
 		if (root == nullptr)
 			return new PersistentTree();
@@ -275,11 +274,12 @@ public:
 	{
 		if (find(value) != end())
 			return false;
-		if (_root[_version] == nullptr)
+		NodePtr root = getRoot(_version);
+		if (root == nullptr)
 		{
 			++_version;
 			NodePtr node(new Node<Type>(value));
-			_root.push_back(node);
+			_root.push_back(std::pair<int, NodePtr>(_version, node));
 		}
 		else
 		{
@@ -299,7 +299,7 @@ public:
 				if (currentParent == nullptr)
 				{
 					++_version;
-					_root.push_back(currentChild);
+					_root.push_back(std::pair<int, NodePtr>(_version, currentChild));
 					stop = true;
 				}
 				else
@@ -310,7 +310,7 @@ public:
 						ChangeType type = orderFunctor(currentChildValue, currentParent->getValue(_version)) ? ChangeType::LeftChild : ChangeType::RightChild;
 						++_version;
 						currentParent->setChange(type, currentChild, _version);
-						_root.push_back(_root[_version - 1]);
+						//_root.push_back(_root[_version - 1]);
 						stop = true;
 					}
 					// jezeli w rodzicu jest zmiana, to go kopiujemy
@@ -344,11 +344,11 @@ public:
 	/// </summary>
 	void print(int version = CURRENT_VERSION) const
 	{
+		NodePtr root = getRoot(version);
 		// nie mozna wydrukowac pustego drzewa
-		if (!getCorrectVersion(version) || _root[version] == nullptr)
+		if (root == nullptr)
 			return;
 		int i = 1;
-		NodePtr root = _root[version];
 		NodePtr right = root->getRightChild(version);
 		NodePtr left = root->getLeftChild(version);
 		printNode(right, version, i);
@@ -389,8 +389,8 @@ private:
 	/// <returns>Jezeli rodzic istnieje, to wskaznik na niego, jezeli nie, to nullptr</returns>
 	NodePtr getParentNode(Type value, int version) const
 	{
-		NodePtr currentNode = _root[version];
-		if (currentNode->getValue(version) == value)
+		NodePtr currentNode = getRoot(version);
+		if (currentNode == nullptr || currentNode->getValue(version) == value)
 			return nullptr;
 		bool found = false;
 		while (!found)
@@ -453,7 +453,7 @@ private:
 		{
 			if (currentParent == nullptr)
 			{
-				_root[version] = currentChild;
+				_root.push_back(std::pair<int, NodePtr>(version, currentChild));
 				stop = true;
 			}
 			else
@@ -523,7 +523,7 @@ private:
 			{
 				if (currentParent == nullptr)
 				{
-					_root[version] = currentNode;
+					_root.push_back(std::pair<int, NodePtr>(version, currentNode));
 					stop = true;
 				}
 				else if (currentParent->getChangeType() == ChangeType::None)
@@ -583,5 +583,21 @@ private:
 		if (version == CURRENT_VERSION)
 			version = currentVersion;
 		return true;
+	}
+
+	NodePtr getRoot(int & version) const
+	{
+		NodePtr result = nullptr;
+		if (!getCorrectVersion(version))
+			return result;
+		for (RootVec::const_reverse_iterator it = _root.crbegin(); it != _root.crend(); ++it)
+		{
+			if (version >= it->first)
+			{
+				result = it->second;
+				break;
+			}
+		}
+		return result;
 	}
 };

@@ -10,6 +10,7 @@
 /// Zastosowany algorytm to metoda Sleatora, Tarjana i innych
 /// Parametr szablonowy Type okresla typ danych, jaki przechowywany w drzewie oraz funkcje porzadku
 /// </summary>
+//ALOKATOR
 template<class Type, class OrderFunctor = std::less<Type>>
 class PersistentTree
 {	
@@ -63,8 +64,8 @@ public:
 			bool isSet = false;
 			while (!isSet)
 			{
-				int parentValue = currentParent->getValue(CURRENT_VERSION);
-				int currentValue = node->getValue(CURRENT_VERSION);
+				Type parentValue = currentParent->getValue(CURRENT_VERSION);
+				Type currentValue = node->getValue(CURRENT_VERSION);
 				if (orderFunctor(currentValue, parentValue))
 				{
 					NodePtr parentLeftChild = currentParent->getLeftChild(CURRENT_VERSION);
@@ -291,7 +292,7 @@ public:
 			// w najgorszym wypadku zostaje utworzony nowy korzen
 			bool stop = false;
 			NodePtr currentChild(newChild);
-			int currentChildValue = value;
+			Type currentChildValue = value;
 			do
 			{
 				NodePtr currentParent = getParentNode(currentChildValue, _version);
@@ -319,7 +320,7 @@ public:
 					else
 					{
 						// nowy rodzic z nowa wartoscia
-						int parentValue = currentParent->getValue(_version);
+						Type parentValue = currentParent->getValue(_version);
 						NodePtr newParent(new Node<Type>(parentValue));
 						// ustaw dzieci
 						if (currentParent->getChangeType() == ChangeType::LeftChild)

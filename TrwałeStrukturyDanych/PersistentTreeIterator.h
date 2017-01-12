@@ -3,6 +3,7 @@
 #include <stack>
 #include "Node.h"
 #include "PersistentTree.h"
+#include <vector>
 
 /// <summary>
 /// Iterator typu forward, sluzacy do przechodzenia przez cale drzewo poszukiwan binarnych we wskazanej wersji.
@@ -10,7 +11,10 @@
 template<class Type, class UnqualifiedType = std::remove_cv_t<Type>>
 class PersistentTreeIterator : public std::iterator<std::forward_iterator_tag, UnqualifiedType, std::ptrdiff_t, Type*, Type&>
 {
-	std::stack<std::shared_ptr<Node<UnqualifiedType>>> stack;
+	//wektor
+	typedef std::shared_ptr<Node<UnqualifiedType>> SharedPtrNodeTyp;
+
+	std::stack<SharedPtrNodeTyp, std::vector<SharedPtrNodeTyp> > stack;
 	int version;
 
 	typedef std::shared_ptr<Node<Type>> NodePtr;
@@ -59,10 +63,10 @@ public:
 			return;
 		bool found = false;
 		NodePtr currentNode = root;
-		int value = node->getValue(version);
+		Type value = node->getValue(version);
 		while (!found)
 		{
-			int currNodeValue = currentNode->getValue(version);
+			Type currNodeValue = currentNode->getValue(version);
 			if (orderFunctor(value, currNodeValue))
 			{
 				stack.push(currentNode);

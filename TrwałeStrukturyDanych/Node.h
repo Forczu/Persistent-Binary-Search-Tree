@@ -81,7 +81,7 @@ public:
 	/// <returns></returns>
 	Type & getValue(int version)
 	{
-		int value = _changeType == ChangeType::Value && version >= _changeTime ? _change.value : _value;
+		Type value = _changeType == ChangeType::Value && version >= _changeTime ? _change.value : _value;
 		return value;
 	}
 

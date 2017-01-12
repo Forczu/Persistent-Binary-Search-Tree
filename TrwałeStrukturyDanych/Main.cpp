@@ -82,13 +82,8 @@ int main()
 	cout << "Usuwanie z seta: " << time_span.count() << "sekund" << endl;
 
 	
-	vector<int> vecInt;
-	vecInt.push_back(3);
-	vecInt.push_back(2);
-	vecInt.push_back(4);
-	vecInt.push_back(5);
 	clk1 = high_resolution_clock::now();
-	PersistentTree<int> tree(vecInt.begin(), vecInt.end());
+	PersistentTree<string> tree(vec.begin(), vec.end());
 	clk2 = high_resolution_clock::now();
 	time_span = duration_cast<duration<double>>(clk2 - clk1);
 	cout << "Wstawianie do drzewa stringow: " << time_span.count() << "sekund" << endl;

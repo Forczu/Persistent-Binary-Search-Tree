@@ -79,7 +79,7 @@ public:
 	/// Zwraca wartosc przechowywana przez wezel.
 	/// </summary>
 	/// <returns></returns>
-	Type & getValue(int version)
+	Type getValue(int version)
 	{
 		Type value = _changeType == ChangeType::Value && version >= _changeTime ? _change.value : _value;
 		return value;
@@ -136,7 +136,7 @@ public:
 		return _changeTime;
 	}
 
-	ChangeField<Type> & getChange()
+	ChangeField<Type> getChange()
 	{
 		return _change;
 	}

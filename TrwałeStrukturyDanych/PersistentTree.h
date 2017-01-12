@@ -185,7 +185,7 @@ public:
 					found = true;
 			}
 			NodePtr largestInLeftSubtreeLeftChild = largestInLeftSubtree->getLeftChild(version);
-			int value = largestInLeftSubtree->getValue(version);
+			Type value = largestInLeftSubtree->getValue(version);
 			NodePtr largestInLeftSubtreeParent = getParentNode(largestInLeftSubtree->getValue(version), version);
 			bool isLeftChild = largestInLeftSubtreeParent->getLeftChild(version) == largestInLeftSubtree ? true : false;
 			setNewChildForMe(largestInLeftSubtreeParent, largestInLeftSubtreeLeftChild, isLeftChild, version + 1);
@@ -240,13 +240,13 @@ public:
 		if (root == nullptr)
 			return new PersistentTree();
 		std::queue<NodePtr> queue;
-		std::vector<int> values;
+		std::vector<Type> values;
 		queue.push(root);
 		while (!queue.empty())
 		{
 			NodePtr node(queue.front());
 			queue.pop();
-			int value = node->getValue(version);
+			Type value = node->getValue(version);
 			values.push_back(value);
 			NodePtr leftChild = node->getLeftChild(version);
 			NodePtr rightChild = node->getRightChild(version);
@@ -468,8 +468,8 @@ private:
 					}
 					else
 					{
-						int childValue = currentChild->getValue(version);
-						int parentValue = currentParent->getValue(version);
+						Type childValue = currentChild->getValue(version);
+						Type parentValue = currentParent->getValue(version);
 						type = orderFunctor(childValue, parentValue) ? ChangeType::LeftChild : ChangeType::RightChild;
 					}
 					currentParent->setChange(type, currentChild, version);
@@ -505,7 +505,7 @@ private:
 	/// <param name="node">Wezel.</param>
 	/// <param name="value">Nowa wartosc.</param>
 	/// <param name="version">Wersja drzewa.</param>
-	void changeValue(NodePtr node, int value, int version)
+	void changeValue(NodePtr node, Type value, int version)
 	{
 		bool stop = false;
 		ChangeType type = ChangeType::Value;
@@ -536,8 +536,8 @@ private:
 				else
 				{
 					NodePtr newParent = makeCopy(currentParent, version);
-					int nodeValue = currentNode->getValue(version);
-					int parentValue = newParent->getValue(version);
+					Type nodeValue = currentNode->getValue(version);
+					Type parentValue = newParent->getValue(version);
 					if (orderFunctor(nodeValue, parentValue))
 						newParent->setLeftChild(currentNode);
 					else

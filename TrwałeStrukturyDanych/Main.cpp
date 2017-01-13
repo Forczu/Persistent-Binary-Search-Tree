@@ -81,14 +81,17 @@ int main()
 	time_span = duration_cast<duration<double>>(clk2 - clk1);
 	cout << "Usuwanie z seta: " << time_span.count() << "sekund" << endl;
 
-	
+	PersistentTree<string> tree;
 	clk1 = high_resolution_clock::now();
-	PersistentTree<string> tree(vec.begin(), vec.end());
+	//PersistentTree<string> tree(vec.begin(), vec.end());
+	for (auto x : vec) {
+		tree.insert("lol");
+	}
 	clk2 = high_resolution_clock::now();
 	time_span = duration_cast<duration<double>>(clk2 - clk1);
 	cout << "Wstawianie do drzewa stringow: " << time_span.count() << "sekund" << endl;
 
-	/*vec100k.clear();
+	vec100k.clear();
 	seed = std::chrono::system_clock::now().time_since_epoch().count();
 	shuffle(vec.begin(), vec.end(), std::default_random_engine(seed));
 	vec100k.insert(vec100k.begin(), vec.begin(), vec.begin() + 100000);
@@ -99,8 +102,17 @@ int main()
 	}
 	clk2 = high_resolution_clock::now();
 	time_span = duration_cast<duration<double>>(clk2 - clk1);
-	cout << "Wyszukiwanie 100k w drzewie stringow: " << time_span.count() << "sekund" << endl;*/
+	cout << "Wyszukiwanie 100k w drzewie stringow: " << time_span.count() << "sekund" << endl;
 
+	/*seed = std::chrono::system_clock::now().time_since_epoch().count();
+	shuffle(vec.begin(), vec.end(), std::default_random_engine(seed));
+	clk1 = high_resolution_clock::now();
+	for (auto x : vec) {
+		tree.erase(x);
+	}
+	clk2 = high_resolution_clock::now();
+	time_span = duration_cast<duration<double>>(clk2 - clk1);
+	cout << "Usuwanie z drzewa stringow: " << time_span.count() << "sekund" << endl;*/
 	/*PersistentTree<int> tree;
 	tree.insert(4);
 	tree.insert(7);

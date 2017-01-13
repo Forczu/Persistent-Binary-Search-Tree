@@ -137,7 +137,7 @@ public:
 	/// Operator dereferencji
 	/// </summary>
 	/// <returns></returns>
-	Type & operator * ()
+	Type operator * ()
 	{
 		return stack.top()->getValue(version);
 	}

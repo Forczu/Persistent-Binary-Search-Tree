@@ -140,58 +140,62 @@ public:
 	/// <param name="value">Wartosc do usuniecia.</param>
 	bool erase(Type value)
 	{
-		int version = getCurrentVersion();
-		iterator it = find(value, version);
+		iterator it = find(value, _version);
 		// brak wartosci w drzwie
 		if (it == end())
 			return false;
 		NodePtr node = it.getNode();
 		//_root.push_back(_root[version]);
-		auto rightChild = node->getRightChild(version);
-		auto leftChild  = node->getLeftChild(version);
-		auto parent = getParentNode(node->getValue(version) , version);
+		auto rightChild = node->getRightChild(_version);
+		auto leftChild  = node->getLeftChild(_version);
+		auto parent = getParentNode(node->getValue(_version), _version);
 		if (parent == nullptr)
 		{
 			// usuwamy korzen
 			if (rightChild == nullptr && leftChild != nullptr)
 			{
-				setNewChildForMe(parent, leftChild, true, version + 1);
+				setNewChildForMe(parent, leftChild);
 			}
 			else if (rightChild != nullptr && leftChild == nullptr)
 			{
-				setNewChildForMe(parent, rightChild, false, version + 1);
+				setNewChildForMe(parent, rightChild);
+			}
+			else if (rightChild != nullptr && leftChild != nullptr)
+			{
+				setLargestValueInLeftSubtreeAsChild(node);
 			}
 			else
 			{
-				setLargestValueInLeftSubtreeAsChild(node, version + 1);
+				_root.push_back(std::pair<int, NodePtr>(_version + 1, nullptr));
 			}
 		}
 		else
 		{
 			// usuwamy wezel na glebszym poziomie
-			bool isLeftChild = parent->getLeftChild(version) == node ? true : false;
-			// brak dzieci
 			if (rightChild == nullptr && leftChild == nullptr)
 			{
-				// rodzic otrzymuje zmiane na nullptr
-				setNewChildForMe(parent, nullptr, isLeftChild, version + 1);
+				// nie mam dzieci, daj rodzicowi nullptr
+				if (parent->getLeftChild(_version) == node)
+					setLeftChildAsNull(parent);
+				else
+					setRightChildAsNull(parent);
 			}
 			// lewe dziecko istnieje
 			else if (rightChild == nullptr && leftChild != nullptr)
 			{
 				// rodzic otrzymuje zmiane na lewego potomka swego dziecka
-				setNewChildForMe(parent, leftChild, isLeftChild, version + 1);
+				setNewChildForMe(parent, leftChild);
 			}
 			// prawe dziecko istnieje
 			else if (rightChild != nullptr && leftChild == nullptr)
 			{
 				// rodzic otrzymuje zmiane na prawego potomka swego dziecka
-				setNewChildForMe(parent, rightChild, isLeftChild, version + 1);
+				setNewChildForMe(parent, rightChild);
 			}
 			// dwoje dzieci istnieje
 			else
 			{
-				setLargestValueInLeftSubtreeAsChild(node, version + 1);
+				setLargestValueInLeftSubtreeAsChild(node);
 			}
 		}
 		confirmChange();
@@ -324,18 +328,20 @@ public:
 					{
 						// nowy rodzic z nowa wartoscia
 						Type parentValue = currentParent->getValue(_version);
+						NodePtr leftChild = currentParent->getLeftChild(_version);
+						NodePtr rightChild = currentParent->getRightChild(_version);
+
 						NodePtr newParent(new Node<Type>(parentValue));
-						// ustaw dzieci
-						if (currentParent->getChangeType() == ChangeType::LeftChild)
-							newParent->setLeftChild(currentParent->getChange().child);
-						else if (currentParent->getChangeType() == ChangeType::RightChild)
-							newParent->setRightChild(currentParent->getChange().child);
+						newParent->setLeftChild(leftChild);
+						newParent->setRightChild(rightChild);
+
 						if (orderFunctor(currentChildValue, parentValue))
 							newParent->setLeftChild(currentChild);
 						else
 							newParent->setRightChild(currentChild);
+
 						currentChild = newParent;
-						currentChildValue = currentChild->getValue(_version);
+						currentChildValue = parentValue;
 					}
 				}
 			} while (!stop);
@@ -448,58 +454,47 @@ private:
 	/// </summary>
 	/// <param name="value">Wartosc.</param>
 	/// <param name="newChild">Nowe dziecko.</param>
-	void setNewChildForMe(NodePtr parent, NodePtr newChild, bool isLeftChild, int version)
+	void setNewChildForMe(NodePtr parent, NodePtr newChild)
 	{
-		bool stop = false;
-		NodePtr currentChild = newChild;
+		propagateChangesAfterInsert(parent, newChild);
+	}
+
+	void setRightChildAsNull(NodePtr parent)
+	{
+		NodePtr currentChild = nullptr;
 		NodePtr currentParent = parent;
-		do
+		if (parent->getChangeType() == ChangeType::None)
 		{
-			if (currentParent == nullptr)
-			{
-				_root.push_back(std::pair<int, NodePtr>(version, currentChild));
-				stop = true;
-			}
-			else
-			{
-				if (currentParent->getChangeType() == ChangeType::None)
-				{
-					ChangeType type;
-					if (currentChild == nullptr)
-					{
-						type = isLeftChild ? ChangeType::LeftChild : ChangeType::RightChild;
-					}
-					else
-					{
-						Type childValue = currentChild->getValue(version);
-						Type parentValue = currentParent->getValue(version);
-						type = orderFunctor(childValue, parentValue) ? ChangeType::LeftChild : ChangeType::RightChild;
-					}
-					currentParent->setChange(type, currentChild, version);
-					stop = true;
-				}
-				else
-				{
-					NodePtr newParent = makeCopy(currentParent, version);
-					if (currentChild != nullptr)
-					{
-						if (orderFunctor(currentChild->getValue(version), newParent->getValue(version)))
-							newParent->setLeftChild(currentChild);
-						else
-							newParent->setRightChild(currentChild);
-					}
-					else
-					{
-						if (isLeftChild)
-							newParent->setLeftChild(currentChild);
-						else
-							newParent->setRightChild(currentChild);
-					}
-					currentChild = newParent;
-					currentParent = getParentNode(currentChild->getValue(version), version);
-				}
-			}
-		} while (!stop);
+			parent->setChange(ChangeType::RightChild, nullptr, _version);
+			return;
+		}
+		else
+		{
+			NodePtr newParent = makeCopy(parent, _version);
+			newParent->setRightChild(nullptr);
+			currentChild = newParent;
+			currentParent = getParentNode(currentChild->getValue(_version), _version);
+		}
+		propagateChangesAfterInsert(currentParent, currentChild);
+	}
+
+	void setLeftChildAsNull(NodePtr parent)
+	{
+		NodePtr currentChild = nullptr;
+		NodePtr currentParent = parent;
+		if (parent->getChangeType() == ChangeType::None)
+		{
+			parent->setChange(ChangeType::LeftChild, nullptr, _version);
+			return;
+		}
+		else
+		{
+			NodePtr newParent = makeCopy(parent, _version);
+			newParent->setLeftChild(nullptr);
+			currentChild = newParent;
+			currentParent = getParentNode(currentChild->getValue(_version), _version);
+		}
+		propagateChangesAfterInsert(currentParent, currentChild);
 	}
 
 	/// <summary>
@@ -508,45 +503,45 @@ private:
 	/// <param name="node">Wezel.</param>
 	/// <param name="value">Nowa wartosc.</param>
 	/// <param name="version">Wersja drzewa.</param>
-	void changeValue(NodePtr node, Type value, int version)
+	void changeValue(NodePtr node, Type value)
 	{
 		bool stop = false;
 		ChangeType type = ChangeType::Value;
 		// jezeli brak zmiany, to tylko ja wprowadzamy
 		if (node->getChangeType() == ChangeType::None)
 		{
-			node->setChange(type, value, version);
+			node->setChange(type, value, _version + 1);
 		}
 		else
 		{
 			bool stop = false;
-			NodePtr currentNode = makeCopy(node, version);
-			NodePtr currentParent = getParentNode(currentNode->getValue(version), version);
+			NodePtr currentNode = makeCopy(node, _version + 1);
+			NodePtr currentParent = getParentNode(currentNode->getValue(_version), _version);
 			currentNode->setValue(value);
 			do
 			{
 				if (currentParent == nullptr)
 				{
-					_root.push_back(std::pair<int, NodePtr>(version, currentNode));
+					_root.push_back(std::pair<int, NodePtr>(_version + 1, currentNode));
 					stop = true;
 				}
 				else if (currentParent->getChangeType() == ChangeType::None)
 				{
-					ChangeType type = orderFunctor(currentNode->getValue(version), currentParent->getValue(version)) ? ChangeType::LeftChild : ChangeType::RightChild;
-					currentParent->setChange(type, currentNode, version);
+					ChangeType type = orderFunctor(currentNode->getValue(_version), currentParent->getValue(_version)) ? ChangeType::LeftChild : ChangeType::RightChild;
+					currentParent->setChange(type, currentNode, _version + 1);
 					stop = true;
 				}
 				else
 				{
-					NodePtr newParent = makeCopy(currentParent, version);
-					Type nodeValue = currentNode->getValue(version);
-					Type parentValue = newParent->getValue(version);
+					NodePtr newParent = makeCopy(currentParent, _version);
+					Type nodeValue = currentNode->getValue(_version);
+					Type parentValue = newParent->getValue(_version);
 					if (orderFunctor(nodeValue, parentValue))
 						newParent->setLeftChild(currentNode);
 					else
 						newParent->setRightChild(currentNode);
 					currentNode = newParent;
-					currentParent = getParentNode(currentNode->getValue(version), version);
+					currentParent = getParentNode(currentNode->getValue(_version), _version);
 				}
 			} while (!stop);
 		}
@@ -608,28 +603,72 @@ private:
 	/// </summary>
 	/// <param name="node">Wezel.</param>
 	/// <param name="version">Wersja.</param>
-	void setLargestValueInLeftSubtreeAsChild(NodePtr node, int version)
+	void setLargestValueInLeftSubtreeAsChild(NodePtr node)
 	{
-		bool left = true;
-		if (typeid(orderFunctor) == typeid(std::less<Type>))
-			left = true;
-		else if (typeid(orderFunctor) == typeid(std::greater<Type>))
-			left = false;
-		NodePtr largestInLeftSubtree = left ? node->getLeftChild(version) : node->getRightChild(version);
+		NodePtr largestInLeftSubtree = node->getLeftChild(_version);
 		bool found = false;
 		while (!found)
 		{
-			NodePtr next = left ? largestInLeftSubtree->getRightChild(version) : largestInLeftSubtree->getLeftChild(version);
+			NodePtr next = largestInLeftSubtree->getRightChild(_version);
 			if (next != nullptr)
 				largestInLeftSubtree = next;
 			else
 				found = true;
 		}
-		NodePtr largestInLeftSubtreeLeftChild = largestInLeftSubtree->getLeftChild(version);
-		Type value = largestInLeftSubtree->getValue(version);
-		NodePtr largestInLeftSubtreeParent = getParentNode(largestInLeftSubtree->getValue(version), version);
-		bool isLeftChild = largestInLeftSubtreeParent->getLeftChild(version) == largestInLeftSubtree ? true : false;
-		setNewChildForMe(largestInLeftSubtreeParent, largestInLeftSubtreeLeftChild, isLeftChild, version + 1);
-		changeValue(node, value, version + 1);
+		NodePtr largestInLeftSubtreeLeftChild = largestInLeftSubtree->getLeftChild(_version);
+		Type value = largestInLeftSubtree->getValue(_version);
+		NodePtr largestInLeftSubtreeParent = getParentNode(largestInLeftSubtree->getValue(_version), _version);
+
+		if (largestInLeftSubtreeLeftChild != nullptr)
+			setNewChildForMe(largestInLeftSubtreeParent, largestInLeftSubtreeLeftChild);
+		else
+		{
+			if (largestInLeftSubtreeParent == node)
+				setLeftChildAsNull(largestInLeftSubtreeParent);
+			else
+				setRightChildAsNull(largestInLeftSubtreeParent);
+		}
+		auto newNodeIt = find(node->getValue(_version + 1), _version + 1);
+		if (newNodeIt != end())
+		{
+			node = newNodeIt.getNode();
+			changeValue(node, value);
+		}
+	}
+
+	void propagateChangesAfterInsert(NodePtr firstParent, NodePtr firstChild)
+	{
+		NodePtr currentParent = firstParent;
+		NodePtr currentChild = firstChild;
+		bool stop = false;
+		do
+		{
+			if (currentParent == nullptr)
+			{
+				_root.push_back(std::pair<int, NodePtr>(_version + 1, currentChild));
+				stop = true;
+			}
+			else
+			{
+				if (currentParent->getChangeType() == ChangeType::None)
+				{
+					Type childValue = currentChild->getValue(_version);
+					Type parentValue = currentParent->getValue(_version);
+					ChangeType type = orderFunctor(childValue, parentValue) ? ChangeType::LeftChild : ChangeType::RightChild;
+					currentParent->setChange(type, currentChild, _version + 1);
+					stop = true;
+				}
+				else
+				{
+					NodePtr newParent = makeCopy(currentParent, _version);
+					if (orderFunctor(currentChild->getValue(_version), newParent->getValue(_version)))
+						newParent->setLeftChild(currentChild);
+					else
+						newParent->setRightChild(currentChild);
+					currentChild = newParent;
+					currentParent = getParentNode(currentChild->getValue(_version), _version);
+				}
+			}
+		} while (!stop);
 	}
 };

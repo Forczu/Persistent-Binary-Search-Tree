@@ -85,7 +85,8 @@ int main()
 	clk1 = high_resolution_clock::now();
 	//PersistentTree<string> tree(vec.begin(), vec.end());
 	for (auto x : vec) {
-		tree.insert("lol");
+		if (!tree.insert(x))
+			cout << "nie udalo sie wstawic wyrazu: " << x << endl;
 	}
 	clk2 = high_resolution_clock::now();
 	time_span = duration_cast<duration<double>>(clk2 - clk1);
@@ -104,7 +105,7 @@ int main()
 	time_span = duration_cast<duration<double>>(clk2 - clk1);
 	cout << "Wyszukiwanie 100k w drzewie stringow: " << time_span.count() << "sekund" << endl;
 
-	/*seed = std::chrono::system_clock::now().time_since_epoch().count();
+	seed = std::chrono::system_clock::now().time_since_epoch().count();
 	shuffle(vec.begin(), vec.end(), std::default_random_engine(seed));
 	clk1 = high_resolution_clock::now();
 	for (auto x : vec) {
@@ -112,7 +113,7 @@ int main()
 	}
 	clk2 = high_resolution_clock::now();
 	time_span = duration_cast<duration<double>>(clk2 - clk1);
-	cout << "Usuwanie z drzewa stringow: " << time_span.count() << "sekund" << endl;*/
+	cout << "Usuwanie z drzewa stringow: " << time_span.count() << "sekund" << endl;
 	/*PersistentTree<int> tree;
 	tree.insert(4);
 	tree.insert(7);

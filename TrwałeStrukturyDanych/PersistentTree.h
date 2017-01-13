@@ -7,7 +7,7 @@
 
 /// <summary>
 /// Klasa reprezentujaca trwale drzewo poszukiwan binarnych.
-/// Zastosowany algorytm to metoda Sleatora, Tarjana i innych
+/// Zastosowany algorytm to metoda Sleatora, Tarjana i innychgetChange()
 /// Parametr szablonowy Type okresla typ danych, jaki przechowywany w drzewie oraz funkcje porzadku
 /// </summary>
 //ALOKATOR
@@ -150,46 +150,49 @@ public:
 		auto rightChild = node->getRightChild(version);
 		auto leftChild  = node->getLeftChild(version);
 		auto parent = getParentNode(node->getValue(version) , version);
-		bool isLeftChild = parent->getLeftChild(version) == node ? true : false;
-		// brak dzieci
-		if (rightChild == nullptr && leftChild == nullptr)
+		if (parent == nullptr)
 		{
-			// rodzic otrzymuje zmiane na nullptr
-			setNewChildForMe(parent, nullptr, isLeftChild, version + 1);
+			// usuwamy korzen
+			if (rightChild == nullptr && leftChild != nullptr)
+			{
+				setNewChildForMe(parent, leftChild, true, version + 1);
+			}
+			else if (rightChild != nullptr && leftChild == nullptr)
+			{
+				setNewChildForMe(parent, rightChild, false, version + 1);
+			}
+			else
+			{
+				setLargestValueInLeftSubtreeAsChild(node, version + 1);
+			}
 		}
-		// lewe dziecko istnieje
-		else if (rightChild == nullptr && leftChild != nullptr)
-		{
-			// rodzic otrzymuje zmiane na lewego potomka swego dziecka
-			setNewChildForMe(parent, leftChild, isLeftChild, version + 1);
-		}
-		// prawe dziecko istnieje
-		else if (rightChild != nullptr && leftChild == nullptr)
-		{
-			// rodzic otrzymuje zmiane na prawego potomka swego dziecka
-			setNewChildForMe(parent, rightChild, isLeftChild, version + 1);
-		}
-		// dwoje dzieci istnieje
 		else
 		{
-			// wezlem zostaje najwieksza wartosc w lewym poddrzwie usuwanego wezla
-			bool left = orderFunctor(1, 2);
-			NodePtr largestInLeftSubtree = left ? node->getLeftChild(version) : node->getRightChild(version);
-			bool found = false;
-			while (!found)
+			// usuwamy wezel na glebszym poziomie
+			bool isLeftChild = parent->getLeftChild(version) == node ? true : false;
+			// brak dzieci
+			if (rightChild == nullptr && leftChild == nullptr)
 			{
-				NodePtr next = left ? largestInLeftSubtree->getRightChild(version) : largestInLeftSubtree->getLeftChild(version);
-				if (next != nullptr)
-					largestInLeftSubtree = next;
-				else
-					found = true;
+				// rodzic otrzymuje zmiane na nullptr
+				setNewChildForMe(parent, nullptr, isLeftChild, version + 1);
 			}
-			NodePtr largestInLeftSubtreeLeftChild = largestInLeftSubtree->getLeftChild(version);
-			Type value = largestInLeftSubtree->getValue(version);
-			NodePtr largestInLeftSubtreeParent = getParentNode(largestInLeftSubtree->getValue(version), version);
-			bool isLeftChild = largestInLeftSubtreeParent->getLeftChild(version) == largestInLeftSubtree ? true : false;
-			setNewChildForMe(largestInLeftSubtreeParent, largestInLeftSubtreeLeftChild, isLeftChild, version + 1);
-			changeValue(node, value, version + 1);
+			// lewe dziecko istnieje
+			else if (rightChild == nullptr && leftChild != nullptr)
+			{
+				// rodzic otrzymuje zmiane na lewego potomka swego dziecka
+				setNewChildForMe(parent, leftChild, isLeftChild, version + 1);
+			}
+			// prawe dziecko istnieje
+			else if (rightChild != nullptr && leftChild == nullptr)
+			{
+				// rodzic otrzymuje zmiane na prawego potomka swego dziecka
+				setNewChildForMe(parent, rightChild, isLeftChild, version + 1);
+			}
+			// dwoje dzieci istnieje
+			else
+			{
+				setLargestValueInLeftSubtreeAsChild(node, version + 1);
+			}
 		}
 		confirmChange();
 		return true;
@@ -579,8 +582,6 @@ private:
 	bool getCorrectVersion(int & version) const
 	{
 		int currentVersion = getCurrentVersion();
-		if (version > currentVersion)
-			return false;
 		if (version == CURRENT_VERSION)
 			version = currentVersion;
 		return true;
@@ -600,5 +601,35 @@ private:
 			}
 		}
 		return result;
+	}
+
+	/// <summary>
+	/// Ustawia najwieksza wartosc w lewym poddrzwie usuwanego wezla jako ten wezel.
+	/// </summary>
+	/// <param name="node">Wezel.</param>
+	/// <param name="version">Wersja.</param>
+	void setLargestValueInLeftSubtreeAsChild(NodePtr node, int version)
+	{
+		bool left = true;
+		if (typeid(orderFunctor) == typeid(std::less<Type>))
+			left = true;
+		else if (typeid(orderFunctor) == typeid(std::greater<Type>))
+			left = false;
+		NodePtr largestInLeftSubtree = left ? node->getLeftChild(version) : node->getRightChild(version);
+		bool found = false;
+		while (!found)
+		{
+			NodePtr next = left ? largestInLeftSubtree->getRightChild(version) : largestInLeftSubtree->getLeftChild(version);
+			if (next != nullptr)
+				largestInLeftSubtree = next;
+			else
+				found = true;
+		}
+		NodePtr largestInLeftSubtreeLeftChild = largestInLeftSubtree->getLeftChild(version);
+		Type value = largestInLeftSubtree->getValue(version);
+		NodePtr largestInLeftSubtreeParent = getParentNode(largestInLeftSubtree->getValue(version), version);
+		bool isLeftChild = largestInLeftSubtreeParent->getLeftChild(version) == largestInLeftSubtree ? true : false;
+		setNewChildForMe(largestInLeftSubtreeParent, largestInLeftSubtreeLeftChild, isLeftChild, version + 1);
+		changeValue(node, value, version + 1);
 	}
 };

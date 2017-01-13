@@ -23,6 +23,7 @@ public:
 		std::shared_ptr<Node<Type>> child;
 		Type value;
 		ChangeField() : child(nullptr) { }
+		ChangeField(ChangeField const & origin) {  };
 		~ChangeField() {}
 	};
 
@@ -119,7 +120,7 @@ public:
 	/// <param name="type">Typ zmiany.</param>
 	/// <param name="value">Wartosc.</param>
 	/// <param name="time">Wersja drzewa.</param>
-	void setChange(ChangeType type, int value, int time)
+	void setChange(ChangeType type, Type value, int time)
 	{
 		_changeType = type;
 		_changeTime = time;
@@ -136,7 +137,7 @@ public:
 		return _changeTime;
 	}
 
-	ChangeField<Type> getChange()
+	ChangeField<Type> & getChange()
 	{
 		return _change;
 	}

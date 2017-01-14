@@ -12,14 +12,20 @@
 /// Zastosowany algorytm to metoda Sleatora, Tarjana i innychgetChange()
 /// Parametr szablonowy Type okresla typ danych, jaki przechowywany w drzewie oraz funkcje porzadku
 /// </summary>
-//ALOKATOR
 template<class Type, class OrderFunctor = std::less<Type>>
 class PersistentTree
 {	
 	typedef Node<Type>* NodePtr;
 	typedef std::vector<std::pair<int, NodePtr>> RootVec;
 
+	/// <summary>
+	/// Identyfikator pierwszej wersji drzewa
+	/// </summary>
 	static const int FIRST_VERSION = 0;
+
+	/// <summary>
+	/// Identyfikator przekierowujacy do aktualnej wersji drzewa
+	/// </summary>
 	static const int CURRENT_VERSION = -1;
 
 	/// <summary>
@@ -474,6 +480,10 @@ private:
 		propagateChangesAfterInsert(parent, newChild);
 	}
 
+	/// <summary>
+	/// Ustawia prawe dziecko wskazanego wezla jako nullptr wraz z propagacja zmian.
+	/// </summary>
+	/// <param name="parent">Wezel rodzica.</param>
 	void setRightChildAsNull(NodePtr parent)
 	{
 		NodePtr currentChild = nullptr;
@@ -493,6 +503,10 @@ private:
 		propagateChangesAfterInsert(currentParent, currentChild);
 	}
 
+	/// <summary>
+	/// Ustawia lewe dziecko wskazanego wezla jako nullptr wraz z propagacja zmian.
+	/// </summary>
+	/// <param name="parent">Wezel rodzica.</param>
 	void setLeftChildAsNull(NodePtr parent)
 	{
 		NodePtr currentChild = nullptr;
@@ -598,6 +612,11 @@ private:
 		return true;
 	}
 
+	/// <summary>
+	/// Zwraca korzen do drzewa o wskazanej wersji
+	/// </summary>
+	/// <param name="version">Wersja.</param>
+	/// <returns></returns>
 	NodePtr getRoot(int & version) const
 	{
 		NodePtr result = nullptr;
@@ -652,6 +671,11 @@ private:
 		}
 	}
 
+	/// <summary>
+	/// Propaguje zmiany w drzewie po tym jak rodzic otrzyma nowe dziecko.
+	/// </summary>
+	/// <param name="firstParent">Rodzic w ktorym natepuje zmiana.</param>
+	/// <param name="firstChild">Nowe dziecko rodzica.</param>
 	void propagateChangesAfterInsert(NodePtr firstParent, NodePtr firstChild)
 	{
 		NodePtr currentParent = firstParent;
@@ -688,6 +712,11 @@ private:
 		} while (!stop);
 	}
 
+	/// <summary>
+	/// Alokuje pamiec na nowy wezel i zwraca go.
+	/// </summary>
+	/// <param name="value">Wartosc wezla.</param>
+	/// <returns></returns>
 	NodePtr allocateNode(Type & value)
 	{
 		NodePtr p = _allocator.allocate(1);
@@ -695,12 +724,19 @@ private:
 		return p;
 	}
 
+	/// <summary>
+	/// Dealokuje wezel z pamieci.
+	/// </summary>
+	/// <param name="p">Wskaznik do wezla.</param>
 	void deallocateNode(Node<Type> * p)
 	{
 		_allocator.destroy(p);
 		_allocator.deallocate(p);
 	}
 
+	/// <summary>
+	/// Dealokuje wszystkie wezly z pamieci.
+	/// </summary>
 	void deallocateNodes()
 	{
 		std::unordered_set<NodePtr> nodesToRemove;
@@ -716,6 +752,11 @@ private:
 		}
 	}
 
+	/// <summary>
+	/// Wyszukuje wszystkie wezly do usuniecia zaczynajac od przekazanego i dodaje je do zbioru wezlow do usuniecia.
+	/// </summary>
+	/// <param name="node">Wezel poczatkowy.</param>
+	/// <param name="nodesToRemove">Zbior wezlow do usuniecia.</param>
 	void searchNodesToRemove(NodePtr node, std::unordered_set<NodePtr> & nodesToRemove)
 	{
 		if (node == nullptr)

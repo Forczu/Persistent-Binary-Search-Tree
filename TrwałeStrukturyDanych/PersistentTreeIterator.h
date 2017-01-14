@@ -11,9 +11,11 @@
 template<class Type, class UnqualifiedType = std::remove_cv_t<Type>>
 class PersistentTreeIterator : public std::iterator<std::forward_iterator_tag, UnqualifiedType, std::ptrdiff_t, Type*, Type&>
 {
-	//wektor
 	typedef Node<UnqualifiedType>* NodePtrType;
 
+	/// <summary>
+	/// Stos wezlow po ktorych nalezy iterowac.
+	/// </summary>
 	std::stack<NodePtrType, std::vector<NodePtrType>> stack;
 	int version;
 

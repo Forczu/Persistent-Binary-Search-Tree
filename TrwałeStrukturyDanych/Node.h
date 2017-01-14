@@ -15,12 +15,12 @@ enum class ChangeType
 template<class Type>
 class Node
 {
-	typedef std::shared_ptr<Node<Type>> NodePtr;
+	typedef Node<Type>* NodePtr;
 public:
 	template<class Type>	
 	union ChangeField
 	{
-		std::shared_ptr<Node<Type>> child;
+		NodePtr child;
 		Type value;
 		ChangeField() : child(nullptr) { }
 		ChangeField(ChangeField const & origin) {  };
@@ -38,19 +38,32 @@ private:
 	NodePtr _leftChild;
 
 public:
+	Node() : _change()
+	{
+		init();
+	}
+
 	Node(Type value) : _change()
 	{
-		// brak zmiany
-		_changeType = ChangeType::None;
-		_changeTime = 0;
-		// wezel bez dzieci i z wartoscia
-		_rightChild = _leftChild = nullptr;
-		_value = value;
+		init();
+		setValue(value);
 	}
 
 	~Node()
 	{
 		_change.child = nullptr;
+		_rightChild = _leftChild = nullptr;
+	}
+
+	/// <summary>
+	/// Inicjalizacja wezla domyslnymi wartosciami.
+	/// </summary>
+	void init()
+	{
+		// brak zmiany
+		_changeType = ChangeType::None;
+		_changeTime = 0;
+		// wezel bez dzieci i z wartoscia
 		_rightChild = _leftChild = nullptr;
 	}
 

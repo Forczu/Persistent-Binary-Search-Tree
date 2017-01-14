@@ -1,9 +1,11 @@
 #pragma once
 #include "PersistentTreeIterator.h"
+#include "NodeAllocator.h"
 #include "Node.h"
 #include <functional>
 #include <queue>
 #include <vector>
+#include <unordered_set>
 
 /// <summary>
 /// Klasa reprezentujaca trwale drzewo poszukiwan binarnych.
@@ -14,7 +16,7 @@
 template<class Type, class OrderFunctor = std::less<Type>>
 class PersistentTree
 {	
-	typedef std::shared_ptr<Node<Type>> NodePtr;
+	typedef Node<Type>* NodePtr;
 	typedef std::vector<std::pair<int, NodePtr>> RootVec;
 
 	static const int FIRST_VERSION = 0;
@@ -35,6 +37,11 @@ class PersistentTree
 	/// </summary>
 	OrderFunctor orderFunctor;
 
+	/// <summary>
+	/// Alokator dla wezlow drzewa
+	/// </summary>
+	NodeAllocator<Type> _allocator;
+
 public:
 	typedef PersistentTreeIterator<Type> iterator;
 	typedef PersistentTreeIterator<const Type> const_iterator;
@@ -47,6 +54,14 @@ public:
 	}
 
 	/// <summary>
+	/// Niszczy drzewo usuwajac z pamieci wszystkie wezly
+	/// </summary>
+	~PersistentTree()
+	{
+		deallocateNodes();
+	}
+
+	/// <summary>
 	/// Tworzy nowe drzewo z wartosciami wstawianymi wg przekazanego wektora
 	/// Otrzymane drzewo jest wersja zerowa.
 	/// </summary>
@@ -54,12 +69,12 @@ public:
 	template <class Iter>
 	PersistentTree(Iter begin, Iter end) : _version(FIRST_VERSION)
 	{
-		NodePtr root(new Node<Type>(*begin));
+		NodePtr root = allocateNode(*begin);
 		Iter it = begin;
 		++it;
 		for ( ; it != end; ++it)
 		{
-			NodePtr node(new Node<Type>(*it));
+			NodePtr node = allocateNode(*it);
 			NodePtr currentParent = root;
 			bool isSet = false;
 			while (!isSet)
@@ -286,19 +301,19 @@ public:
 		if (root == nullptr)
 		{
 			++_version;
-			NodePtr node(new Node<Type>(value));
+			NodePtr node = allocateNode(value);
 			_root.push_back(std::pair<int, NodePtr>(_version, node));
 		}
 		else
 		{
 			// utworzenie nowego dziecka
-			NodePtr newChild(new Node<Type>(value));
+			NodePtr newChild = allocateNode(value);
 			// uwzglednienie zmian w rodzicach. Jezeli wezel rodzicielski
 			// posiada juz zajety wskaznik zmiany, zostaje on skopiowany
 			// wowczas kolejni rodzice tak samo, jezeli ich pole zmian jest zajete
 			// w najgorszym wypadku zostaje utworzony nowy korzen
 			bool stop = false;
-			NodePtr currentChild(newChild);
+			NodePtr currentChild = newChild;
 			Type currentChildValue = value;
 			do
 			{
@@ -318,7 +333,6 @@ public:
 						ChangeType type = orderFunctor(currentChildValue, currentParent->getValue(_version)) ? ChangeType::LeftChild : ChangeType::RightChild;
 						++_version;
 						currentParent->setChange(type, currentChild, _version);
-						//_root.push_back(_root[_version - 1]);
 						stop = true;
 					}
 					// jezeli w rodzicu jest zmiana, to go kopiujemy
@@ -331,7 +345,7 @@ public:
 						NodePtr leftChild = currentParent->getLeftChild(_version);
 						NodePtr rightChild = currentParent->getRightChild(_version);
 
-						NodePtr newParent(new Node<Type>(parentValue));
+						NodePtr newParent = allocateNode(parentValue);
 						newParent->setLeftChild(leftChild);
 						newParent->setRightChild(rightChild);
 
@@ -371,6 +385,7 @@ public:
 	/// </summary>
 	void purge()
 	{
+		deallocateNodes();
 		_root.clear();
 		_version = FIRST_VERSION;
 		_root.push_back(nullptr);
@@ -555,7 +570,8 @@ private:
 	/// <returns></returns>
 	NodePtr makeCopy(NodePtr node, int version)
 	{
-		NodePtr copy(new Node<Type>(node->getValue(version)));
+		int value = node->getValue(version);
+		NodePtr copy = allocateNode(value);
 		copy->setRightChild(node->getRightChild(version));
 		copy->setLeftChild(node->getLeftChild(version));
 		return copy;
@@ -670,5 +686,50 @@ private:
 				}
 			}
 		} while (!stop);
+	}
+
+	NodePtr allocateNode(Type & value)
+	{
+		NodePtr p = _allocator.allocate(1);
+		_allocator.construct(p, value);
+		return p;
+	}
+
+	void deallocateNode(Node<Type> * p)
+	{
+		_allocator.destroy(p);
+		_allocator.deallocate(p);
+	}
+
+	void deallocateNodes()
+	{
+		std::unordered_set<NodePtr> nodesToRemove;
+		for (RootVec::iterator it = _root.begin(); it != _root.end(); ++it)
+		{
+			searchNodesToRemove(it->second, nodesToRemove);
+		}
+		int size = _allocator.getNodeCount();
+		auto setSize = nodesToRemove.size();
+		for (auto it = nodesToRemove.begin(); it != nodesToRemove.end() ; ++it)
+		{
+			deallocateNode(*it);
+		}
+	}
+
+	void searchNodesToRemove(NodePtr node, std::unordered_set<NodePtr> & nodesToRemove)
+	{
+		if (node == nullptr)
+			return;
+		auto rightChild = node->getRightChild(FIRST_VERSION);
+		auto leftChild = node->getLeftChild(FIRST_VERSION);
+		auto changeType = node->getChangeType();
+		auto changedChild = changeType == ChangeType::LeftChild || changeType == ChangeType::RightChild ? node->getChange().child : nullptr;
+		nodesToRemove.insert(node);
+		if (rightChild != nullptr && nodesToRemove.find(rightChild) == nodesToRemove.end())
+			searchNodesToRemove(rightChild, nodesToRemove);
+		if (leftChild != nullptr && nodesToRemove.find(leftChild) == nodesToRemove.end())
+			searchNodesToRemove(leftChild, nodesToRemove);
+		if (changedChild != nullptr && nodesToRemove.find(changedChild) == nodesToRemove.end())
+			searchNodesToRemove(changedChild, nodesToRemove);
 	}
 };

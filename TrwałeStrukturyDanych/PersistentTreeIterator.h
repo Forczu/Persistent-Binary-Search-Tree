@@ -12,12 +12,12 @@ template<class Type, class UnqualifiedType = std::remove_cv_t<Type>>
 class PersistentTreeIterator : public std::iterator<std::forward_iterator_tag, UnqualifiedType, std::ptrdiff_t, Type*, Type&>
 {
 	//wektor
-	typedef std::shared_ptr<Node<UnqualifiedType>> SharedPtrNodeTyp;
+	typedef Node<UnqualifiedType>* NodePtrType;
 
-	std::stack<SharedPtrNodeTyp, std::vector<SharedPtrNodeTyp> > stack;
+	std::stack<NodePtrType, std::vector<NodePtrType>> stack;
 	int version;
 
-	typedef std::shared_ptr<Node<Type>> NodePtr;
+	typedef Node<Type>* NodePtr;
 
 public:
 
@@ -34,7 +34,7 @@ public:
 	/// </summary>
 	/// <param name="root">Korzen drzewa poszukiwan.</param>
 	/// <param name="version">Wersja po ktorej nalezy przeszukiwac.</param>
-	PersistentTreeIterator(std::shared_ptr<Node<UnqualifiedType>> root, int version) : version(version)
+	PersistentTreeIterator(NodePtrType root, int version) : version(version)
 	{
 		if (root == nullptr)
 			return;
@@ -57,7 +57,7 @@ public:
 	}
 
 	template<class OrderFunctor>
-	PersistentTreeIterator(std::shared_ptr<Node<UnqualifiedType>> node, std::shared_ptr<Node<UnqualifiedType>> root, OrderFunctor orderFunctor, int version) : version(version)
+	PersistentTreeIterator(NodePtrType node, NodePtrType root, OrderFunctor orderFunctor, int version) : version(version)
 	{
 		if (root == nullptr || node == nullptr)
 			return;

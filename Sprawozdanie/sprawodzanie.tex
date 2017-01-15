@@ -1,0 +1,259 @@
+% !TeX spellcheck = pl_PL
+\documentclass[a4paper,twoside]{article}
+\usepackage{polski}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{enumerate}
+\usepackage[unicode, bookmarks=true]{hyperref} %do zakładek
+\usepackage{tabto} % do tabulacji
+\NumTabs{6} % globalne ustawienie wielkosci tabulacji
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{dcolumn}
+\usepackage{bigstrut}
+\usepackage{color}
+\usepackage{epigraph}
+\usepackage{wrapfig}
+\usepackage{MnSymbol}
+\usepackage{xparse}
+\usepackage{listings}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[usenames,dvipsnames]{xcolor}
+\setlength{\epigraphwidth}{0.65\textwidth}
+
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\setlength{\textheight}{24cm}
+\setlength{\textwidth}{15.92cm}
+\setlength{\footskip}{10mm}
+\setlength{\oddsidemargin}{0mm}
+\setlength{\evensidemargin}{0mm}
+\setlength{\topmargin}{0mm}
+\setlength{\headsep}{5mm}
+
+\usepackage{titlesec}
+\makeatletter
+\@addtoreset{section}{part}
+\makeatother
+\titleformat{\part}[display]
+{\normalfont\LARGE\bfseries\centering}{}{0pt}{}
+
+\graphicspath{./img/}
+
+\usepackage{caption}
+\DeclareCaptionFont{white}{\bfseries\color{white}}
+\DeclareCaptionFormat{listing}{\colorbox{gray}{\parbox[t][0.35cm][t]{\textwidth}{\emph{#1}#2#3}}}
+\captionsetup[lstlisting]{format=listing,labelfont=white,textfont=white}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\lstset{%
+	frame=lines,
+	language=C++,
+	escapechar=*,
+	numbers=left,
+	frame=tb,
+	escapeinside={(*}{*)},
+	commentstyle=\color{mygreen},
+	stringstyle=\color{mymauve},
+	keywordstyle=\color{blue},
+	rulecolor=\color{gray},
+	tabsize=4,
+	breaklines=true,
+	% --- Polskie znaki w listingu kodu
+	literate=%
+	{ą}{{\c{a}}}1
+	{ć}{{\'c}}1
+	{ę}{{\c{e}}}1
+	{ł}{{\l{}}}1
+	{ń}{{\'n}}1
+	{ó}{{\'o}}1
+	{ś}{{\'s}}1
+	{ź}{{\'z}}1
+	{ż}{{\.z}}1
+	{Ą}{{\c{A}}}1
+	{Ć}{{\'C}}1
+	{Ę}{{\c{E}}}1
+	{Ł}{{\L{}}}1
+	{Ń}{{\'N}}1
+	{Ó}{{\'O}}1
+	{Ś}{{\'S}}1
+	{Ź}{{\'Z}}1
+	{Ż}{{\.Z}}1
+}
+
+\renewcommand{\arraystretch}{1.33}
+
+\begin{document}
+	\input{titlepage.tex}
+	
+	\section{Wstęp}
+	Naszym zadaniem projektowym z przedmiotu \textit{Zaawansowane biblioteki programistyczne} było napisanie klasy bibliotecznej \lstinline|PersistentTree| reprezentującej trwałe drzewo poszukiwań binarnych. Ta klasa miała udostępniać interfejs dla programistów podobny do tego, jaki posiada klasa \lstinline|std::set| ze standardowej biblioteki szablonów C++. Miał być on jak najbardziej praktyczny i posiadać wszystkie niezbędne funkcjonalności związane z tworzeniem drzewa i nie udostępniać jego pośrednich, niekompletnych wersji.\\
+	Program został napisany w język C++. Poza bibliotekami zawartymi w standardzie C++11, nie zostały wykorzystane żadne biblioteki zewnętrzne. Do zapewnienia trwałości struktury został wykorzystany algorytm Sleatora, Tarjana i innych.
+	
+	\section{Specyfikacja zewnętrzna}
+	\subsection{Deklaracja}
+	Główną klasą przechowującą trwałe drzewo poszukiwań binarnych jest \lstinline|PersistentTree|. Nagłówek klasy wygląda następująco:
+	\begin{lstlisting}
+template<class Type, class OrderFunctor = std::less<Type>>
+class PersistentTree;
+	\end{lstlisting}
+	Parametry szablonowe:
+	 \begin{itemize}
+	 	\item Type - typ przechowywanych danych w drzewie,
+	 	\item OrderFunctor - funkcja porządku definiująca sposób wstawiania elementów do drzewa. Domyślną wartością jest typ \lstinline|std::less<Type>|.
+	 \end{itemize}
+	 Z powyższych dwóch punktów wynika, że typ szablonowy powinien umożliwiać operacje na operatorach relacyjnych, jak $ < $ lub $ > $.
+	\subsection{Konstruktory}
+	\begin{lstlisting}[caption=Konstruktor bezparametrowy]
+PersistentTree();
+	\end{lstlisting}
+	Tworzy puste drzewo bez żadnych węzłów, z pierwszym numerem wersji.
+	\begin{lstlisting}[caption=Konstruktor z iteratorem]
+template <class Iter>
+PersistentTree(Iter begin, Iter end);
+	\end{lstlisting}
+	Konstruktor przyjmujący początek i koniec iteratora kolekcji. Tworzy trwałe drzewo wstawiając jako korzeń pierwszy element kolekcji, dodając kolejne, aż wstawi ostatni z nich. Numer wersji tak utworzonego drzewa jest równy liczbie elementów kolekcji. Jeżeli kolekcja jest pusta, efekt jest taki sam jak przy użyciu konstruktora bezparametrowego.
+	\begin{itemize}
+		\item Iter - klasa iteratora,
+		\item begin - początek kolekcji wskazany przez iterator,
+		\item end - koniec kolekcji wskazany przez iterator.
+	\end{itemize}
+	\subsection{Destruktor}
+	\begin{lstlisting}[caption=Destruktor]
+~PersistentTree();
+	\end{lstlisting}
+	Zwalnia z pamięci wszystkie zaalokowane przez drzewo węzły.
+	\subsection{Metody}
+	Klasa \lstinline|PersistentTree| udostępnia następujący zestaw zewnętrznych instrukcji.
+	\begin{lstlisting}[caption=begin]
+iterator begin(int version = CURRENT_VERSION);
+	\end{lstlisting}
+	Funkcja zwracająca iterator na pierwszy (skrajnie lewy) węzeł drzewa poszukiwań. Przyjmuje pojedynczy parametr \textit{version}, który decyduje o wersji drzewa na które wskazuje iterator. Domyślną wartością jest wersja aktualna - w przypadku nie podania parametru, iterator wskaże na najnowszą wersję drzewa.
+	\begin{lstlisting}[caption=clear]
+void clear();
+	\end{lstlisting}
+	Usuwa z drzewa wszystkie węzły i zapisuje ten stan jako nową wersję drzewa - utrwalona historia pozostaje nienaruszona.
+	\begin{lstlisting}[caption=end, label={lst:end}]
+iterator end() const;
+	\end{lstlisting}
+	Zwraca iterator, który wskazuje na miejsce za kolekcją wszystkich węzłów. Nie przyjmuje parametru wskazującego na wersję drzewa - dla wszystkich wartość funkcji \lstinline|end| pozostaje taka sama.
+	\begin{lstlisting}[caption=erase]
+bool erase(Type value);
+	\end{lstlisting}
+	Usuwa z drzewa węzeł o wskazanej wartości i zapisuje ten stan jako nową wersję drzewa. Jeżeli element istnieje i operacja zakończyła się sukcesem - funkcja zwraca wartość \lstinline|true|. Jeżeli element w drzewie nie istnieje, wówczas zwrócona zostaje wartość \lstinline|false|.
+	\begin{lstlisting}[caption=find]
+iterator find(Type value, int version = CURRENT_VERSION) const;
+	\end{lstlisting}
+	Funkcja wyszukująca węzeł o wskazanej wartości (parametr \textit{value}) i zwracająca iterator do niego. Jeżeli wartość nie istnieje w drzewie, wówczas iterator przyjmie wartość poza kolekcją węzłów (patrz funkcja end \ref{lst:end}). Parametr \textit{version} wskazuje w której wersji drzewa należy wyszukiwać wartości. Domyślną wartością tego parametru jest najnowsza wersja drzewa.
+	\begin{lstlisting}[caption=getCopy]
+PersistentTree<Type> * getCopy(int version);
+	\end{lstlisting}
+	Zwraca kopię drzewa o wskazanej wersji w parametrze \textit{version}. Kopia nie posiada historii - zawiera dokładnie taką samą strukturę drzewa jak oryginał w podanej wersji, ale w kopii otrzymuje ona wersję pierwszą, nie znajduje się nic poza nią.
+	\begin{lstlisting}[caption=getCurrentVersion]
+int getCurrentVersion() const;
+	\end{lstlisting}
+	Zwraca aktualną wersję drzewa w formie liczbowej.
+	\begin{lstlisting}[caption=insert]
+bool insert(Type value);
+	\end{lstlisting}
+	Wstawia do drzewa nowy węzeł o wartości wskazanej w parametrze \textit{value} i zapisuje ten stan jako nową wersję. Funkcja zwraca \lstinline|true| jeżeli wartość została prawidłowo wstawiona i operacja zakończyła się sukcesem. Wartość \lstinline|false| jest zwracana gdy element nie został wstawiony do drzewa, np. dlatego, że owa wartość już istnieje w drzewie (w najnowszej wersji).
+	\begin{lstlisting}[caption=print]
+void print(int version = CURRENT_VERSION) const;
+	\end{lstlisting}
+	Wypisuje całe drzewo w sformatowanej formie na standardowym wyjściu. Parametr \textit{version} określą, którą wersję drzewa należy wydrukować. Domyślnie przyjmuje najnowszą wersję drzewa.
+	\begin{lstlisting}[caption=purge]
+void purge();
+	\end{lstlisting}
+	Całkowicie likwiduje drzewo wraz z całą jego historią. Wszystkie węzły zostają usunięte, a puste drzewo zostaje oznaczone jako pierwsza wersja.
+	\begin{lstlisting}[caption=size]
+int size(int version = CURRENT_VERSION) const;
+	\end{lstlisting}
+	Zwraca rozmiar drzewa reprezentowany jako liczba wszystkich jego węzłów. Parametr \textit{version} określa wersję drzewa, którego rozmiar należy zwrócić, domyślnie przyjmuje, że ma to być wersja najnowsza.
+	
+	\section{Specyfikacja wewnętrzna}
+	\subsection{Reprezentacja drzewa}
+	Reprezentacja została rozłożona na dwie klasy: \lstinline|PersistentTree| oraz \lstinline|Node|. Pierwsza reprezentuje trwałe drzewo poszukiwań binarnych, a druga pojedynczy węzeł ów drzewa.
+	\subsubsection{Klasa węzła}
+	\lstinline|Node| przechowuje informacje jakie są potrzebne do działania drzewa poszukiwań: wartość oraz wskaźniki na lewego i prawego potomka, a także pola potrzebne do działania zgodnie z algorytmem Sleatora, Tarjana i innych: rodzaj, czas i wartość zmiany. Ponieważ zmianą może być albo zmiana wartości w węźle, albo zmiana wskaźnika na jednego z potomków, został wykorzystany typ \lstinline|union| do reprezentacji wartości zmiany: przyjmuje on albo wartość prostego wskaźnika, albo całą nową wartość węzła. Do reprezentacji typu zmiany został wykorzystany typ \lstinline|enum|. Klasa \lstinline|Node| udostępnia na zewnątrz gettery do wartości drzewa: potomków oraz wartości, które jako parametr przyjmują numer wersji. W każdym z nich sprawdzany jest rodzaj i czas zmiany, i jeżeli są one odpowiednie, zwracana jest zmieniony element, a nie ten przechowywany w polach węzła drzewa.
+	\subsubsection{Klasa drzewa}
+	Głównym zadaniem klasy \lstinline|PersistentTree| od wewnętrznej strony jest takie zarządzanie węzłami i relacjami między nimi, aby po operacjach \textit{insert} i \textit{erase} wszystkie zmiany zostały właściwie spropagowane. Klasa posiada wektor wskaźników na korzenie drzewa wraz z czasem (wersją) ich utworzenia, które są punktami wejściowymi wszystkich operacji. Nowy wskaźnik jest dodawany do wektora tylko gdy po propagacji zmian zostanie utworzony nowy obiekt korzenia. Ponieważ reprezentacja węzła posiada tylko wskaźniki na potomków, drzewo ma szereg pomocniczych funkcji, m. in. do wyszukiwania rodzica wskazanego węzła we wskazanej wersji.
+	\subsection{Propagacja zmian}
+	Za każdym razem, gdy zostaje wykonana operacja wstawiania lub usuwania w drzewie, może ruszyć cała fala zmian, jakie muszą być wykonane w strukturze drzewa. Jeżeli węzeł, w którym dokonywana jest zmiana, posiada już jakąś, zostaje utworzona jego kopia i jest uruchomiany algorytm propagacji zmian.
+	\begin{algorithm}[H]
+		\caption{Algorytm propagacji zmian po utworzeniu kopii węzła}\label{propadacjaZmianAlgo}
+		\begin{algorithmic}
+			\Procedure{Propaguj zmiany}{Pierwszy rodzic, Pierwsze dziecko}
+				\State{Aktualny rodzic = Pierwszy rodzic}
+				\State{Aktualne dziecko = Pierwsze dziecko}
+				\While{Nie koniec propagacji}
+					\If{Aktualny rodzic jest nullem}
+						\State{Aktualne dziecko jest korzeniem dla najnowszej wersji}
+						\State{Koniec obliczeń}
+					\Else
+						\If{Aktualny rodzic nie ma zmiany}
+							\State{Ustaw zmianę w rodzicu}
+							\State{Koniec obliczeń}
+						\Else
+							\State{Utwórz kopię rodzica z uwzględnioną zmianą}
+							\State{Aktualne dziecko = Aktualny rodzic}
+							\State{Aktualny rodzic = Rodzic aktualnego rodzica}
+						\EndIf
+					\EndIf
+				\EndWhile
+			\EndProcedure
+		\end{algorithmic}
+	\end{algorithm}
+	\subsection{Alokacja pamięci dla węzłów}
+	W celu rezerwowania pamięci dla węzłów drzewa została utworzona klasa \lstinline|NodeAllocator|, która odpowiada za tworzenie i usuwanie węzłów. Za każdym razem gdy drzewo potrzebuje nowego węzła, np. podczas wstawiania nowej wartości lub kopiowania w czasie propagacji zmian, używa w tym celu obiektu alokatora. Klasa \lstinline|NodeAllocator| udostępnia na zewnątrz metody, które rezerwują pamięć funkcją \lstinline|malloc| i wywołują konstruktor węzła oraz takie, które wywołują destruktor i zwalniają pamięć funkcją \lstinline|free|. Klasa ta przechowuje również informację o łącznej liczbie zaalokowanych węzłów oraz rozmiarze przydzielonej pamięci w bajtach.
+	\subsection{Iterator}
+	Klasa \lstinline|PersistentTree<Type>| udostępnia jako swój iterator klasę \lstinline|PersistentTreeIterator<Type>| (pod nazwą "iterator" odwołując się z przestrzeni nazw). Implementuje ona iterator typu \textit{forward} dla trwałego drzewa poszukiwań. Jej deklaracja wygląda następująco.
+	\begin{lstlisting}[caption=PersistentTreeIterator]
+template<class Type, class UnqualifiedType = std::remove_cv_t<Type>>
+class PersistentTreeIterator : public std::iterator<std::forward_iterator_tag, UnqualifiedType, std::ptrdiff_t, Type*, Type&>;
+	\end{lstlisting}
+	Tworząc obiekt iteratora należy przekazać mu w parametrze konstruktora wskaźnik na węzeł, od którego będzie się zaczynać iteracja oraz wersję drzewa po której będzie iterował. Obiekt potrafi przejść przez wszystkie kolejne elementy zgodnie z porządkiem wskazanym przez \lstinline|OrderFunctor|, aż do końca. Aby umożliwić poprawne przechodzenie przez wszystkie elementy, została wykorzystana struktura stosu. Iterator udostępnia na zewnątrz operatory porównywania oraz inkrementacji, w celu wykorzystania go w podstawowych pętlach, gdzie ważny jest warunek stopu oraz pojedynczy krok do przodu.
+	\subsection{Funkcja porządku}
+	W parametrze szablonowym można przekazać klasę funktora, która będzie definiować porządek węzłów w drzewie. Aby to było możliwe, funktor musi posiadać przeciążony operator wywołania, który przyjmuje jako parametry dwie stałe referencje do obiektów typu. Ten operator jest wykorzystywany w wielu metodach drzewa, m. in. wstawiania, wyszukiwania, usuwania i propagacji. Dobrze nadają się do tego obiekty klas z biblioteki \textit{functional}, jak \lstinline|std::less|, \lstinline|std::greater| itp.
+	
+	\section{Scenariusze testowe}
+	Naszym zadaniem było wykonanie testów czasowych i pamięciowych dla typów \lstinline|int| oraz \lstinline|std::string|, a także porównanie ich z wynikami takich samych testów dla kontenera \lstinline|std::set|.
+	\subsection{Testy czasowe}
+	Czasy wstawiania i usuwania dla kontenerów \lstinline|std::set| oraz \lstinline|PersistentTree|:
+	\begin{itemize}
+		\item Miliona losowych wartości typu \lstinline|int|.
+		\item Ponad miliona wartości typu \lstinline|std::string| pobranych ze słownika języku polskiego.
+	\end{itemize}
+	Ponadto zostały przeprowadzone testy wyszukiwania 100 tysięcy losowo wybranych elementów ze struktur opartych o oba rodzaje danych.\\
+	Przed wstawianiem i usuwaniem porządek elementów został ustalony losowo metodą \lstinline|std::shuffle|. Testy zostały przeprowadzone w trybie \textit{release}, w programie skompilowanym przez MCVS14 na architekturę 64-bitową oraz uruchomionym na procesorze Intel Celeron G530.
+	\begin{table}[h]
+		\centering
+		\caption{Testy czasowe}
+		\begin{tabular}{c|c|c|c|c|c|c|}
+			\cline{2-7}
+			\textit{\textbf{Czasy obliczeń {[}s{]}}}   & \multicolumn{3}{c|}{\textbf{std::set}}           & \multicolumn{3}{c|}{\textbf{PersistentTree}}     \\ \hline
+			\multicolumn{1}{|c|}{\textbf{Typ danych}}  & \textit{insert} & \textit{find} & \textit{erase} & \textit{insert} & \textit{find} & \textit{erase} \\ \hline
+			\multicolumn{1}{|c|}{\textit{int}}         & 1.109           & 0.114         & 1.467          & 2.276           & 0.287         & 4.398          \\ \hline
+			\multicolumn{1}{|c|}{\textit{std::string}} & 2.679           & 0.165         & 3.549          & 5.4837          & 0.439         & 11.287         \\ \hline
+		\end{tabular}
+	\end{table}
+	
+	\begin{table}[h]
+		\centering
+		\caption{Testy pamięciowe}
+		\begin{tabular}{c|c|l|l|c|l|l|}
+			\cline{2-7}
+			\multirow{2}{*}{\textit{\textbf{Pamięć {[}MB{]}}}} & \multicolumn{3}{c|}{\multirow{2}{*}{\textbf{std::set}}} & \multicolumn{3}{c|}{\multirow{2}{*}{\textbf{PersistentTree}}} \\
+			& \multicolumn{3}{c|}{}                                   & \multicolumn{3}{c|}{}                                         \\ \hline
+			\multicolumn{1}{|c|}{\textit{int}}                 & \multicolumn{3}{c|}{3.81}                               & \multicolumn{3}{c|}{6.06}                                     \\ \hline
+			\multicolumn{1}{|c|}{\textit{std::string}}         & \multicolumn{3}{c|}{41.67}                              & \multicolumn{3}{c|}{66.20}                                    \\ \hline
+		\end{tabular}
+	\end{table}
+	
+	\section{Podsumowanie}
+	
+	
+\end{document}

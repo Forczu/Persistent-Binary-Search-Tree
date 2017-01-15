@@ -9,7 +9,7 @@
 
 /// <summary>
 /// Klasa reprezentujaca trwale drzewo poszukiwan binarnych.
-/// Zastosowany algorytm to metoda Sleatora, Tarjana i innychgetChange()
+/// Zastosowany algorytm to metoda Sleatora, Tarjana i innych
 /// Parametr szablonowy Type okresla typ danych, jaki przechowywany w drzewie oraz funkcje porzadku
 /// </summary>
 template<class Type, class OrderFunctor = std::less<Type>>
@@ -47,6 +47,11 @@ class PersistentTree
 	/// Alokator dla wezlow drzewa
 	/// </summary>
 	NodeAllocator<Type> _allocator;
+
+	/// <summary>
+	/// Pomocniczy alokator dla tworzenia zlozonych obiektow przy zmianie wartosci wezla
+	/// </summary>
+	std::allocator<Type> _typeAllocator;
 
 public:
 	typedef PersistentTreeIterator<Type> iterator;
@@ -167,9 +172,9 @@ public:
 			return false;
 		NodePtr node = it.getNode();
 		//_root.push_back(_root[version]);
-		auto rightChild = node->getRightChild(_version);
-		auto leftChild  = node->getLeftChild(_version);
-		auto parent = getParentNode(node->getValue(_version), _version);
+		NodePtr rightChild = node->getRightChild(_version);
+		NodePtr leftChild  = node->getLeftChild(_version);
+		NodePtr parent = getParentNode(*node->getValue(_version), _version);
 		if (parent == nullptr)
 		{
 			// usuwamy korzen
@@ -230,7 +235,7 @@ public:
 	/// <param name="value">Wartosc do wyszukania.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <returns></returns>
-	iterator find(Type value, int version = CURRENT_VERSION) const
+	iterator find(Type & value, int version = CURRENT_VERSION) const
 	{
 		NodePtr root = getRoot(version);
 		if (root == nullptr)
@@ -239,9 +244,9 @@ public:
 		bool found = false;
 		while (!found)
 		{
-			if (orderFunctor(value, currentNode->getValue(version)))
+			if (orderFunctor(value, *currentNode->getValue(version)))
 				currentNode = currentNode->getLeftChild(version);
-			else if (orderFunctor(currentNode->getValue(version), value))
+			else if (orderFunctor(*currentNode->getValue(version), value))
 				currentNode = currentNode->getRightChild(version);
 			else
 				found = true;
@@ -299,7 +304,7 @@ public:
 	/// Umieszcza nowy element w drzewie poszukiwan. Skutkuje utworzeniem nowej wersji drzewa.
 	/// </summary>
 	/// <param name="value">Wartosc do umieszczenia.</param>
-	bool insert(Type value)
+	bool insert(Type & value)
 	{
 		if (find(value) != end())
 			return false;
@@ -320,10 +325,10 @@ public:
 			// w najgorszym wypadku zostaje utworzony nowy korzen
 			bool stop = false;
 			NodePtr currentChild = newChild;
-			Type currentChildValue = value;
+			Type * currentChildValue = &value;
 			do
 			{
-				NodePtr currentParent = getParentNode(currentChildValue, _version);
+				NodePtr currentParent = getParentNode(*currentChildValue, _version);
 				// brak rodzica -> dziecko jest nowym korzeniem
 				if (currentParent == nullptr)
 				{
@@ -336,7 +341,7 @@ public:
 					// jezeli w rodzicu nie ma zmiany, to ja wprowadzamy
 					if (currentParent->getChangeType() == ChangeType::None)
 					{
-						ChangeType type = orderFunctor(currentChildValue, currentParent->getValue(_version)) ? ChangeType::LeftChild : ChangeType::RightChild;
+						ChangeType type = orderFunctor(*currentChildValue, *currentParent->getValue(_version)) ? ChangeType::LeftChild : ChangeType::RightChild;
 						++_version;
 						currentParent->setChange(type, currentChild, _version);
 						stop = true;
@@ -347,15 +352,15 @@ public:
 					else
 					{
 						// nowy rodzic z nowa wartoscia
-						Type parentValue = currentParent->getValue(_version);
+						Type * parentValue = currentParent->getValue(_version);
 						NodePtr leftChild = currentParent->getLeftChild(_version);
 						NodePtr rightChild = currentParent->getRightChild(_version);
 
-						NodePtr newParent = allocateNode(parentValue);
+						NodePtr newParent = allocateNode(*parentValue);
 						newParent->setLeftChild(leftChild);
 						newParent->setRightChild(rightChild);
 
-						if (orderFunctor(currentChildValue, parentValue))
+						if (orderFunctor(*currentChildValue, *parentValue))
 							newParent->setLeftChild(currentChild);
 						else
 							newParent->setRightChild(currentChild);
@@ -382,7 +387,7 @@ public:
 		NodePtr right = root->getRightChild(version);
 		NodePtr left = root->getLeftChild(version);
 		printNode(right, version, i);
-		std::cout << root->getValue(version) << std::endl;
+		std::cout << *root->getValue(version) << std::endl;
 		printNode(left, version, i);
 	}
 
@@ -411,6 +416,15 @@ public:
 		return count;
 	}
 
+	/// <summary>
+	/// Zwraca liczbe wszystkich wezlow zaalokowanych w drzewie.
+	/// </summary>
+	/// <returns></returns>
+	int size_of_history()
+	{
+		return _allocator.getNodeCount();
+	}
+
 private:
 	/// <summary>
 	/// Zwraca wskaznik na rodzica wezla o podanej wartosci zgodnie z podana wersja.
@@ -418,10 +432,10 @@ private:
 	/// <param name="value">Wartosc dziecka.</param>
 	/// <param name="version">Wersja drzewa.</param>
 	/// <returns>Jezeli rodzic istnieje, to wskaznik na niego, jezeli nie, to nullptr</returns>
-	NodePtr getParentNode(Type value, int version) const
+	NodePtr getParentNode(Type & value, int version) const
 	{
 		NodePtr currentNode = getRoot(version);
-		if (currentNode == nullptr || currentNode->getValue(version) == value)
+		if (currentNode == nullptr || *currentNode->getValue(version) == value)
 			return nullptr;
 		bool found = false;
 		while (!found)
@@ -429,16 +443,16 @@ private:
 			NodePtr left, right;
 			left = currentNode->getLeftChild(version);
 			right = currentNode->getRightChild(version);
-			if (orderFunctor(value, currentNode->getValue(version)))
+			if (orderFunctor(value, *currentNode->getValue(version)))
 			{
-				if (left == nullptr || left->getValue(version) == value)
+				if (left == nullptr || *left->getValue(version) == value)
 					found = true;
 				else
 					currentNode = left;
 			}
 			else
 			{
-				if (right == nullptr || right->getValue(version) == value)
+				if (right == nullptr || *right->getValue(version) == value)
 					found = true;
 				else
 					currentNode = right;
@@ -465,7 +479,7 @@ private:
 		{
 			std::cout << '\t';
 		}
-		std::cout << node->getValue(version) << std::endl;
+		std::cout << *node->getValue(version) << std::endl;
 		if (left != nullptr)
 			printNode(left, version, level + 1);
 	}
@@ -498,7 +512,7 @@ private:
 			NodePtr newParent = makeCopy(parent, _version);
 			newParent->setRightChild(nullptr);
 			currentChild = newParent;
-			currentParent = getParentNode(currentChild->getValue(_version), _version);
+			currentParent = getParentNode(*currentChild->getValue(_version), _version);
 		}
 		propagateChangesAfterInsert(currentParent, currentChild);
 	}
@@ -521,7 +535,7 @@ private:
 			NodePtr newParent = makeCopy(parent, _version);
 			newParent->setLeftChild(nullptr);
 			currentChild = newParent;
-			currentParent = getParentNode(currentChild->getValue(_version), _version);
+			currentParent = getParentNode(*currentChild->getValue(_version), _version);
 		}
 		propagateChangesAfterInsert(currentParent, currentChild);
 	}
@@ -532,47 +546,19 @@ private:
 	/// <param name="node">Wezel.</param>
 	/// <param name="value">Nowa wartosc.</param>
 	/// <param name="version">Wersja drzewa.</param>
-	void changeValue(NodePtr node, Type value)
+	void changeValue(NodePtr node, Type * value)
 	{
-		bool stop = false;
-		ChangeType type = ChangeType::Value;
-		// jezeli brak zmiany, to tylko ja wprowadzamy
 		if (node->getChangeType() == ChangeType::None)
 		{
-			node->setChange(type, value, _version + 1);
+			Type * newValue = _typeAllocator.allocate(1);
+			_typeAllocator.construct(newValue, *value);
+			node->setChange(ChangeType::Value, *newValue, _version + 1);
 		}
 		else
 		{
-			bool stop = false;
-			NodePtr currentNode = makeCopy(node, _version + 1);
-			NodePtr currentParent = getParentNode(currentNode->getValue(_version), _version);
-			currentNode->setValue(value);
-			do
-			{
-				if (currentParent == nullptr)
-				{
-					_root.push_back(std::pair<int, NodePtr>(_version + 1, currentNode));
-					stop = true;
-				}
-				else if (currentParent->getChangeType() == ChangeType::None)
-				{
-					ChangeType type = orderFunctor(currentNode->getValue(_version), currentParent->getValue(_version)) ? ChangeType::LeftChild : ChangeType::RightChild;
-					currentParent->setChange(type, currentNode, _version + 1);
-					stop = true;
-				}
-				else
-				{
-					NodePtr newParent = makeCopy(currentParent, _version);
-					Type nodeValue = currentNode->getValue(_version);
-					Type parentValue = newParent->getValue(_version);
-					if (orderFunctor(nodeValue, parentValue))
-						newParent->setLeftChild(currentNode);
-					else
-						newParent->setRightChild(currentNode);
-					currentNode = newParent;
-					currentParent = getParentNode(currentNode->getValue(_version), _version);
-				}
-			} while (!stop);
+			NodePtr currentNode = makeCopy(node, value, _version + 1);
+			NodePtr currentParent = getParentNode(*node->getValue(_version), _version);
+			propagateChangesAfterInsert(currentParent, currentNode);
 		}
 	}
 
@@ -584,8 +570,23 @@ private:
 	/// <returns></returns>
 	NodePtr makeCopy(NodePtr node, int version)
 	{
-		int value = node->getValue(version);
-		NodePtr copy = allocateNode(value);
+		Type * value = node->getValue(version);
+		NodePtr copy = allocateNode(*value);
+		copy->setRightChild(node->getRightChild(version));
+		copy->setLeftChild(node->getLeftChild(version));
+		return copy;
+	}
+
+	/// <summary>
+	/// worzy kopie wezla z uwzglednieniem pola zmiany i nowej wartosci
+	/// </summary>
+	/// <param name="node">Wezel.</param>
+	/// <param name="value">Nowa wartosc.</param>
+	/// <param name="version">Wersja drzewa.</param>
+	/// <returns></returns>
+	NodePtr makeCopy(NodePtr node, Type * value, int version)
+	{
+		NodePtr copy = allocateNode(*value);
 		copy->setRightChild(node->getRightChild(version));
 		copy->setLeftChild(node->getLeftChild(version));
 		return copy;
@@ -651,8 +652,8 @@ private:
 				found = true;
 		}
 		NodePtr largestInLeftSubtreeLeftChild = largestInLeftSubtree->getLeftChild(_version);
-		Type value = largestInLeftSubtree->getValue(_version);
-		NodePtr largestInLeftSubtreeParent = getParentNode(largestInLeftSubtree->getValue(_version), _version);
+		Type * value = largestInLeftSubtree->getValue(_version);
+		NodePtr largestInLeftSubtreeParent = getParentNode(*largestInLeftSubtree->getValue(_version), _version);
 
 		if (largestInLeftSubtreeLeftChild != nullptr)
 			setNewChildForMe(largestInLeftSubtreeParent, largestInLeftSubtreeLeftChild);
@@ -663,7 +664,8 @@ private:
 			else
 				setRightChildAsNull(largestInLeftSubtreeParent);
 		}
-		auto newNodeIt = find(node->getValue(_version + 1), _version + 1);
+		Type & val = *node->getValue(_version + 1);
+		auto newNodeIt = find(val, _version + 1);
 		if (newNodeIt != end())
 		{
 			node = newNodeIt.getNode();
@@ -692,21 +694,21 @@ private:
 			{
 				if (currentParent->getChangeType() == ChangeType::None)
 				{
-					Type childValue = currentChild->getValue(_version);
-					Type parentValue = currentParent->getValue(_version);
-					ChangeType type = orderFunctor(childValue, parentValue) ? ChangeType::LeftChild : ChangeType::RightChild;
+					Type * childValue = currentChild->getValue(_version);
+					Type * parentValue = currentParent->getValue(_version);
+					ChangeType type = orderFunctor(*childValue, *parentValue) ? ChangeType::LeftChild : ChangeType::RightChild;
 					currentParent->setChange(type, currentChild, _version + 1);
 					stop = true;
 				}
 				else
 				{
 					NodePtr newParent = makeCopy(currentParent, _version);
-					if (orderFunctor(currentChild->getValue(_version), newParent->getValue(_version)))
+					if (orderFunctor(*currentChild->getValue(_version), *newParent->getValue(_version)))
 						newParent->setLeftChild(currentChild);
 					else
 						newParent->setRightChild(currentChild);
 					currentChild = newParent;
-					currentParent = getParentNode(currentChild->getValue(_version), _version);
+					currentParent = getParentNode(*currentChild->getValue(_version), _version);
 				}
 			}
 		} while (!stop);
@@ -720,7 +722,9 @@ private:
 	NodePtr allocateNode(Type & value)
 	{
 		NodePtr p = _allocator.allocate(1);
-		_allocator.construct(p, value);
+		Type * val = _typeAllocator.allocate(1);
+		_typeAllocator.construct(val, value);
+		_allocator.construct(p, *val);
 		return p;
 	}
 
@@ -730,6 +734,15 @@ private:
 	/// <param name="p">Wskaznik do wezla.</param>
 	void deallocateNode(Node<Type> * p)
 	{
+		if (p->getChangeType() == ChangeType::Value)
+		{
+			Type * changeVal = p->getChange().value;
+			_typeAllocator.destroy(changeVal);
+			_typeAllocator.deallocate(changeVal, 1);
+		}
+		Type * val = p->getValue(FIRST_VERSION);
+		_typeAllocator.destroy(val);
+		_typeAllocator.deallocate(val, 1);
 		_allocator.destroy(p);
 		_allocator.deallocate(p);
 	}
@@ -746,7 +759,8 @@ private:
 		}
 		int size = _allocator.getNodeCount();
 		auto setSize = nodesToRemove.size();
-		for (auto it = nodesToRemove.begin(); it != nodesToRemove.end() ; ++it)
+		int ile = 1;
+		for (auto it = nodesToRemove.begin(); it != nodesToRemove.end() ; ++it, ++ile)
 		{
 			deallocateNode(*it);
 		}

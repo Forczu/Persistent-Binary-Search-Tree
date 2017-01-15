@@ -65,16 +65,16 @@ public:
 			return;
 		bool found = false;
 		NodePtr currentNode = root;
-		Type value = node->getValue(version);
+		Type * value = node->getValue(version);
 		while (!found)
 		{
-			Type currNodeValue = currentNode->getValue(version);
-			if (orderFunctor(value, currNodeValue))
+			Type * currNodeValue = currentNode->getValue(version);
+			if (orderFunctor(*value, *currNodeValue))
 			{
 				stack.push(currentNode);
 				currentNode = currentNode->getLeftChild(version);
 			}
-			else if (orderFunctor(currNodeValue, value))
+			else if (orderFunctor(*currNodeValue, *value))
 			{
 				currentNode = currentNode->getRightChild(version);
 			}

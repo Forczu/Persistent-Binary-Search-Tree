@@ -21,7 +21,7 @@ public:
 	union ChangeField
 	{
 		NodePtr child;
-		Type value;
+		Type * value;
 		ChangeField() : child(nullptr) { }
 		ChangeField(ChangeField const & origin) {  };
 		~ChangeField() {}
@@ -34,7 +34,7 @@ private:
 	ChangeField<Type> _change;
 	// pole drzewa
 	NodePtr _rightChild;
-	Type _value;
+	Type * _value;
 	NodePtr _leftChild;
 
 public:
@@ -43,10 +43,10 @@ public:
 		init();
 	}
 
-	Node(Type value) : _change()
+	Node(Type & value) : _change()
 	{
 		init();
-		setValue(value);
+		setValue(&value);
 	}
 
 	~Node()
@@ -93,9 +93,9 @@ public:
 	/// Zwraca wartosc przechowywana przez wezel.
 	/// </summary>
 	/// <returns></returns>
-	Type getValue(int version)
+	Type * getValue(int version)
 	{
-		Type value = _changeType == ChangeType::Value && version >= _changeTime ? _change.value : _value;
+		Type * value = _changeType == ChangeType::Value && version >= _changeTime ? _change.value : _value;
 		return value;
 	}
 
@@ -109,7 +109,7 @@ public:
 		_rightChild = child;
 	}
 
-	void setValue(Type value)
+	void setValue(Type * value)
 	{
 		_value = value;
 	}
@@ -133,11 +133,11 @@ public:
 	/// <param name="type">Typ zmiany.</param>
 	/// <param name="value">Wartosc.</param>
 	/// <param name="time">Wersja drzewa.</param>
-	void setChange(ChangeType type, Type value, int time)
+	void setChange(ChangeType type, Type & value, int time)
 	{
 		_changeType = type;
 		_changeTime = time;
-		_change.value = value;
+		_change.value = &value;
 	}
 
 	ChangeType getChangeType()
